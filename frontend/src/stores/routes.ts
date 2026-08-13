@@ -6,6 +6,7 @@ import type { TrailRoute, Difficulty, CreateRoutePayload } from '../types/domain
 export const useRoutesStore = defineStore('routes', () => {
   const list = ref<TrailRoute[]>([])
   const current = ref<TrailRoute | null>(null)
+  const mine = ref<TrailRoute[]>([])
   const filter = ref<Difficulty | 'All'>('All')
   const search = ref('')
   const loading = ref(false)
@@ -52,6 +53,21 @@ export const useRoutesStore = defineStore('routes', () => {
     }
   }
 
+  async function fetchMine(): Promise<void> {
+    loading.value = true
+    try {
+      mine.value = await api.get<TrailRoute[]>('/routes/mine')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Only `mine` is per-user; `list` and `current` are the public catalog.
+  // Same reason as the reset in stores/bookings.ts.
+  function reset(): void {
+    mine.value = []
+  }
+
   // The created route is appended to the end of the list to match the createdAt ASC ordering.
   async function publishRoute(payload: CreateRoutePayload): Promise<TrailRoute> {
     const route = await api.post<TrailRoute>('/routes', payload)
@@ -62,13 +78,16 @@ export const useRoutesStore = defineStore('routes', () => {
   return {
     list,
     current,
+    mine,
     filter,
     search,
     loading,
     totalCount,
     visibleRoutes,
+    reset,
     fetchRoutes,
     fetchRoute,
+    fetchMine,
     publishRoute,
   }
 })

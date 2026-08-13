@@ -7,6 +7,7 @@ export const useToursStore = defineStore('tours', () => {
   const list = ref<Tour[]>([])
   const current = ref<Tour | null>(null)
   const routeTours = ref<Tour[]>([])
+  const mine = ref<Tour[]>([])
   const loading = ref(false)
 
   async function fetchTours(): Promise<void> {
@@ -44,6 +45,21 @@ export const useToursStore = defineStore('tours', () => {
     }
   }
 
+  async function fetchMine(): Promise<void> {
+    loading.value = true
+    try {
+      mine.value = await api.get<Tour[]>('/tours/mine')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Only `mine` is per-user; `list`, `current` and `routeTours` are public data.
+  // Same reason as the reset in stores/bookings.ts.
+  function reset(): void {
+    mine.value = []
+  }
+
   // Errors are intentionally left to bubble up so the calling dialog can
   // show validation feedback and keep the form state intact.
   async function scheduleTour(routeId: string, payload: CreateTourPayload): Promise<Tour> {
@@ -55,10 +71,13 @@ export const useToursStore = defineStore('tours', () => {
     list,
     current,
     routeTours,
+    mine,
     loading,
+    reset,
     fetchTours,
     fetchTour,
     fetchRouteTours,
+    fetchMine,
     scheduleTour,
   }
 })

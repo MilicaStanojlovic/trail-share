@@ -113,3 +113,17 @@ export interface Booking {
   createdAt: string
   tour: Tour
 }
+
+export interface GuideRating {
+  value: number
+  count: number
+}
+
+export interface GuideDashboard {
+  toursScheduled: number
+  // null when the guide has no upcoming tours.
+  nextTourInDays: number | null
+  seatsBooked: number
+  routesPublished: number
+  rating: GuideRating
+}
