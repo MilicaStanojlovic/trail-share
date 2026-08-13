@@ -51,6 +51,12 @@ try {
 SELECT count(*) FROM information_schema.tables
 WHERE table_schema = 'public' AND table_name NOT IN ('users','routes','waypoints','tours','bookings')
 "@
+        # Fail closed. A native exe's failure does not trip $ErrorActionPreference,
+        # so without this check a psql that could not connect leaves $foreign null,
+        # [int]$null is 0, and we would "verify" the database by not looking at it.
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($foreign)) {
+            throw "Could not inspect the existing `"$dbName`" database (psql exit code $LASTEXITCODE). Refusing to touch it."
+        }
         if ([int]$foreign -gt 0) {
             throw "Database `"$dbName`" already exists and contains tables this project does not own (for example a flyway_schema_history from another app). Refusing to touch it. Pick a different name by editing `$dbName in this script, or drop that database yourself first."
         }

@@ -22,6 +22,16 @@ export interface AuthPayload {
   user: PublicUser;
 }
 
+/** Postgres unique_violation. TypeORM surfaces the driver code untyped. */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505'
+  );
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -36,12 +46,25 @@ export class AuthService {
     }
 
     const passwordHash = await hash(dto.password, 10);
-    const user = await this.users.create({
-      displayName: dto.displayName,
-      email: dto.email,
-      passwordHash,
-      role: dto.role,
-    });
+
+    let user: User;
+    try {
+      user = await this.users.create({
+        displayName: dto.displayName,
+        email: dto.email,
+        passwordHash,
+        role: dto.role,
+      });
+    } catch (error) {
+      // The findByEmail check above is check-then-insert, so two simultaneous
+      // registrations for one address both pass it and the loser hits the
+      // unique index. Translate that into the contract's 409 rather than
+      // letting a raw QueryFailedError surface as a 500.
+      if (isUniqueViolation(error)) {
+        throw new ConflictException('Email is already registered');
+      }
+      throw error;
+    }
 
     return this.buildAuthPayload(user);
   }

@@ -65,14 +65,16 @@ export const useAuthStore = defineStore('auth', () => {
 
     try {
       user.value = await api.get<AuthUser>('/auth/me')
-    } catch (err) {
-      // An expired/invalid 24-hour token is expected over time; treat it as
-      // signed-out rather than surfacing an error to the caller.
-      if (err instanceof ApiError) {
-        logout()
-        return
-      }
-      throw err
+    } catch {
+      // Restore must never reject: the router guard awaits it on every
+      // navigation, so a rejection aborts the navigation and leaves a blank
+      // page behind a permanently rejected cached promise.
+      //
+      // An expired 24-hour token (ApiError 401) is the expected case, but a
+      // network failure — backend down, dev proxy socket error, offline —
+      // throws a raw TypeError from fetch. Both mean "we could not confirm
+      // this session", so both resolve to signed-out.
+      logout()
     }
   }
 

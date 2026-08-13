@@ -15,7 +15,10 @@ import { RolesGuard } from './roles.guard';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET', 'dev-only-secret'),
+        // `||`, not config.get's default argument: that default only applies
+        // when the key is undefined, and a `JWT_SECRET=` line in .env yields
+        // an empty string, which @nestjs/jwt treats as no secret at all.
+        secret: config.get<string>('JWT_SECRET') || 'dev-only-secret',
         signOptions: { expiresIn: '24h' },
       }),
     }),

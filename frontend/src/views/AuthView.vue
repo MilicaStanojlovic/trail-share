@@ -147,7 +147,7 @@ const modeOptions = [
 
         <FormField
           label="Password"
-          :hint="isRegister ? '✓ 8+ characters, one number' : undefined"
+          hint="✓ 8+ characters, one number"
         >
           <input
             v-model="password"
