@@ -63,17 +63,17 @@ One new endpoint. `RouteDto` is unchanged from `plans/route-catalog.md` (`id, na
 
 ## Tasks
 
-- [ ] **T1 — CreateRouteDto with lat/lng pair validator**
+- [x] **T1 — CreateRouteDto with lat/lng pair validator**
   - Files: `backend/src/routes/dto/create-route.dto.ts` (new)
   - Do: In this file, first build a custom decorator `IsLatLngPair(validationOptions?: ValidationOptions)` using `registerDecorator`: valid iff the value is an array of exactly 2 finite numbers with `value[0]` in [-90, 90] and `value[1]` in [-180, 180]; default message `'each waypoint must be a [lat, lng] pair with lat in [-90, 90] and lng in [-180, 180]'`. Then `export class CreateRouteDto`: `name: string` with `@Transform(({ value }) => (typeof value === 'string' ? value.trim() : value)) @IsString() @MinLength(3) @MaxLength(120)`; `description?: string` with `@IsOptional() @IsString() @MaxLength(2000)`; `difficulty: RouteDifficulty` with `@IsEnum(RouteDifficulty)`; `activity: RouteActivity` with `@IsEnum(RouteActivity)`; `waypoints: [number, number][]` with `@IsArray() @ArrayMinSize(2) @IsLatLngPair({ each: true })`. Every field decorated — the global pipe strips undecorated fields. Enums imported from `../route.entity`.
   - Done when: `npm run build` passes in `backend/`; the file exports both `CreateRouteDto` and `IsLatLngPair`.
 
-- [ ] **T2 — RoutesService.create**
+- [x] **T2 — RoutesService.create**
   - Files: `backend/src/routes/routes.service.ts` (edit)
   - Do: Add `async create(dto: CreateRouteDto, authorId: string): Promise<RouteDto>`: compute `const description = dto.description?.trim() ? dto.description.trim() : 'No description yet.'`; `this.routes.create({ name: dto.name, description, difficulty: dto.difficulty, activity: dto.activity, waypoints: dto.waypoints, authorId })`; `await this.routes.save(...)`; return `this.findById(saved.id)` (reuses the existing author join + `toDto` decoration — do not duplicate `toDto` logic). Touch nothing else in the service.
   - Done when: `npm run build` passes; `create` exists with exactly this signature and returns `Promise<RouteDto>`.
 
-- [ ] **T3 — POST handler on RoutesController**
+- [x] **T3 — POST handler on RoutesController**
   - Files: `backend/src/routes/routes.controller.ts` (edit)
   - Do: Add above the existing GETs: `@Post() @UseGuards(JwtAuthGuard) create(@Body() dto: CreateRouteDto, @CurrentUser() user: AuthUser): Promise<RouteDto> { return this.routesService.create(dto, user.id); }`. **No** `RolesGuard` / `@Roles` (Decisions #3). Imports: `Post`, `Body`, `UseGuards` from `@nestjs/common`; `JwtAuthGuard` and `CurrentUser` from `../auth/...`; **`import type { AuthUser } from '../auth/auth-user'`** — a value import trips TS1272. Leave the two GET handlers and their public status untouched. Nest's default 201 for POST is the contract's status.
   - Done when: `npm run build` passes; with the dev server running, `POST /api/routes` without a token returns 401, and with a valid token + valid body returns 201 JSON containing `id` and `durationLabel`.
@@ -93,17 +93,17 @@ One new endpoint. `RouteDto` is unchanged from `plans/route-catalog.md` (`id, na
   - Do: **Reuse the existing harness** — `createE2eContext()` / `destroyE2eContext()` from `backend/test/postgres-testcontainer.ts` in `beforeAll`/`afterAll`; never start a second container. In `beforeAll`, register two fresh users via `POST /api/auth/register` (one `GUIDE`, one `HIKER`, passwords satisfying the 8+/digit rule) and keep both tokens. A `validBody` fixture with 3 waypoints around `[45.9, 15.96]`. Cases: (1) no Authorization header → 401; (2) guide token + validBody → 201, response has a UUID `id`, echoes name/difficulty/activity/waypoints, `waypointCount: 3`, `tourCount: 0`, `author` equal to `{ id: <guide id>, displayName: <guide displayName> }` with `Object.keys(author).sort()` = `['displayName','id']`, `distanceLabel` matching `/^\d+\.\d km$/`, `elevationM % 10 === 0`, `durationLabel` matching `/^(\d+ h( \d+ min)?|\d+ min)$/`; (3) **hiker token** + validBody → 201 (proves no role guard — Decisions #3); (4) omitted `description` → 201 with `description: 'No description yet.'`; (5) `name: 'ab'` → 400; (6) 1 waypoint → 400; (7) a `[95, 15.96]` waypoint → 400; (8) a `[45.9, 15.96, 1]` waypoint → 400; (9) `difficulty: 'Extreme'` → 400; (10) extra field `authorId` in the body → 400 (forbidNonWhitelisted); (11) after the 201s, `GET /api/routes` (no auth) includes the created routes **after** any earlier ones (createdAt ASC — Decisions #4), and `GET /api/routes/:id` of a created route returns 200 with the same decorated shape.
   - Done when: `npm run test:e2e` in `backend/` passes (Docker running) alongside the existing specs.
 
-- [ ] **T7 — Frontend port of route-stats**
+- [x] **T7 — Frontend port of route-stats**
   - Files: `frontend/src/lib/route-stats.ts` (new)
   - Do: Copy `backend/src/routes/route-stats.ts` **byte-for-byte** with exactly one deviation (Decisions #7): replace `import { RouteActivity } from './route.entity';` with `import type { Activity } from '@/types/domain'`, change the two `activity: RouteActivity` parameter types to `activity: Activity`, and `activity === RouteActivity.BIKING` to `activity === 'Biking'`. All function bodies, names, comments and the `RouteStats` interface stay identical: `haversineKm`, `pathDistanceKm`, `elevationGainM`, `durationHours`, `formatDuration`, `computeRouteStats`. The backend's `route-stats.spec.ts` pins the outputs this port must reproduce — including minutes rounding to 5 and `m === 60` rolling into the hour.
   - Done when: `npm run type-check` passes in `frontend/`; `diff` of the two files shows changes on only the import line and the `RouteActivity`/`Activity` occurrences.
 
-- [ ] **T8 — Vitest + parity tests for the port**
+- [x] **T8 — Vitest + parity tests for the port**
   - Files: `frontend/package.json` (edit, via npm), `frontend/src/lib/route-stats.spec.ts` (new)
   - Do: In `frontend/`, `npm install -D vitest`; add script `"test:unit": "vitest run"`. The spec imports `{ describe, it, expect }` from `'vitest'` explicitly and the functions from `'./route-stats'` (relative — no alias config needed, Decisions #8). Assert the **same pinned values as `backend/src/routes/route-stats.spec.ts`**: `haversineKm([45.9, 15.96], [45.909, 15.96])` → `toBeCloseTo(1.0008, 3)`; `pathDistanceKm` of `[]` and of one point → 0; `elevationGainM(1.0008, 2)` → 70; `formatDuration(0.357)` → `'20 min'`; `formatDuration(2.7)` → `'2 h 40 min'`; `formatDuration(1.99)` → `'2 h'` (the m=60 rollover); `formatDuration(3.0)` → `'3 h'`; `computeRouteStats` on `[[45.9, 15.96], [45.909, 15.96]]` → `durationLabel` `'20 min'` for `'Hiking'` and `'10 min'` for `'Biking'`.
   - Done when: `npm run test:unit` in `frontend/` exits 0 with all cases green; `npm run type-check` and `npm run build` still pass.
 
-- [ ] **T9 — TrailMap draw mode**
+- [x] **T9 — TrailMap draw mode**
   - Files: `frontend/src/components/TrailMap.vue` (edit)
   - Do: Extend the existing component (hero/view behavior must not change). Add an optional `modelValue?: [number, number][]` prop + `update:modelValue` emit (the draw screen binds `v-model` — the **view owns the waypoint state**; the map never mutates the received array, it always emits a fresh copy). Make `coords` optional defaulting to `[]`. Painting uses `mode === 'draw' ? modelValue ?? [] : coords`. In draw mode: (a) `map.getContainer().style.cursor = 'crosshair'` (Decisions #11); (b) `map.on('click', e => emit('update:modelValue', [...pts, [e.latlng.lat, e.latlng.lng]]))`; (c) in `paint()`, main polyline gets `dashArray: '1 0'` (halo unchanged), **no** start/end circleMarkers and **no** `fitBounds` ever (spec §8.3); (d) after the polylines, add one `L.marker(p, { draggable: true, icon: L.divIcon({ className: 'ts-wp', html: String(i + 1), iconSize: [20, 20], iconAnchor: [10, 10] }) })` per point (`.ts-wp` already exists in `frontend/src/assets/app.css` — do not restyle), with a `drag` handler that emits a copy where point `i` is replaced by `[latlng.lat, latlng.lng]`. Watch `modelValue` deeply and repaint (markers included) on change; keep the existing unmount cleanup.
   - Done when: `npm run type-check` and `npm run build` pass; in view/hero mode nothing visible changed (solid line, markers, fitBounds intact).
