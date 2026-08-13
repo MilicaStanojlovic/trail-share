@@ -32,7 +32,7 @@ Branch names describe the feature, not the task: `feature/trail-detail-page`, no
 
 ### 2. Plan
 
-Launch the **planner** agent. Give it the feature name, the goal in the user's own words, and any constraints. It reads `CLAUDE.md`, `docs/design-spec.md`, and the design source, then writes `docs/features/<feature>.md` — an API contract plus 8–20 checkbox tasks.
+Launch the **planner** agent. Give it the feature name, the goal in the user's own words, and any constraints. It reads `CLAUDE.md`, `docs/design-spec.md`, and the design source, then writes `plans/<feature>.md` — an API contract plus 8–20 checkbox tasks.
 
 Read the plan file yourself before proceeding. You are the only reviewer of the plan; a wrong contract here becomes wrong code in a dozen tasks.
 
@@ -43,7 +43,9 @@ For each unchecked task **in order**, launch a fresh **implementor** agent with:
 - the exact task ID (e.g. `T4`),
 - a one-paragraph summary of what previous tasks actually produced (the implementor has no memory of earlier invocations).
 
-Run these **sequentially, never in parallel** — every task shares one working tree, and concurrent agents will clobber each other's edits.
+Run these **sequentially, never in parallel** — every task shares one working tree, and concurrent agents clobber each other's edits. Buffered writes from a killed `opencode` can also land *after* an agent has given up and written the file itself, so overlapping runs produce genuinely confusing diffs.
+
+**If opencode hangs at zero output, the cause is almost always a missing `--auto` flag**, not load or concurrency: without it opencode waits forever for permission to write. See `.claude/agents/implementor.md`.
 
 The implementor delegates the code writing to Kimi K2 via `opencode run`, verifies it type-checks, and ticks the box. If it reports a task as blocked, resolve the blocker (usually a missing dependency or an ambiguous plan step) and re-run that task before moving on. Never advance past a blocked task.
 

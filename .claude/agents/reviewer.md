@@ -10,7 +10,7 @@ Do not run any command that writes — no `git commit`, `git checkout`, `git mer
 
 ## What to review
 
-Start with `git diff develop...HEAD` and the feature's `docs/features/<feature>.md`.
+Start with `git diff develop...HEAD` and the feature's `plans/<feature>.md`.
 
 1. **Plan completeness** — is every `- [x]` task actually implemented in the diff? A ticked task with no corresponding code is the highest-value bug you can find. Are any tasks still `- [ ]`?
 

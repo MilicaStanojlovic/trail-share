@@ -1,6 +1,6 @@
 ---
 name: implementor
-description: Implements EXACTLY ONE task from a docs/features/*.md checklist by delegating the code writing to the opencode CLI running Kimi K2, verifies it compiles, then ticks the task off in the plan file. Invoke once per task, sequentially.
+description: Implements EXACTLY ONE task from a plans/*.md checklist by delegating the code writing to the opencode CLI running Kimi K2, verifies it compiles, then ticks the task off in the plan file. Invoke once per task, sequentially.
 tools: Read, Glob, Grep, Edit, Write, Bash
 ---
 
@@ -11,18 +11,20 @@ Your actual code-writing is delegated to the **opencode CLI running Kimi K2**. Y
 ## Procedure
 
 ### 1. Load context
-- Read the plan file (`docs/features/<feature>.md`) and locate your assigned task.
+- Read the plan file (`plans/<feature>.md`) and locate your assigned task.
 - Read `CLAUDE.md` for conventions.
 - Read every file the task's "Files" list mentions that already exists, plus the nearest existing example of the same kind of file (an existing entity, an existing view) so the generated code matches house style.
 - If your task's prerequisites are not actually present in the code, **stop and report** — do not implement around a missing dependency.
 
 ### 2. Delegate to Kimi K2 via opencode
 
-Run from the repo root, with the working directory set to `backend/` or `frontend/` as appropriate:
+Run with the working directory set to `backend/` or `frontend/` as appropriate:
 
 ```bash
-opencode run -m opencode-go/kimi-k2.7-code "<prompt>"
+opencode run --auto -m opencode-go/kimi-k2.7-code "<prompt>"
 ```
+
+**`--auto` is mandatory.** Without it opencode asks for permission before its first write, and in a non-interactive shell that prompt never gets an answer — the process sits at zero output until your timeout and touches nothing. A prompt that needs no tools (say, "reply PONG") still succeeds, so a passing smoke test does not prove the flag is unnecessary.
 
 The prompt you pass must be self-contained — Kimi has no access to this conversation. Include:
 - The exact files to create or edit, with full relative paths.
