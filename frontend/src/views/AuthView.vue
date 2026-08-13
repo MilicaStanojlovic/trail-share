@@ -196,7 +196,7 @@ const modeOptions = [
             font-size: 12px;
             color: var(--color-accent-700);
             background: var(--color-accent-100);
-            border-radius: 16px;
+            border-radius: var(--radius-md);
             padding: 10px 14px;
           "
         >

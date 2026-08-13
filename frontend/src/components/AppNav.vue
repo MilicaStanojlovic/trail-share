@@ -69,9 +69,29 @@ function goDraw() {
 
     <div style="margin-left: auto; display: flex; align-items: center; gap: 14px">
       <AppButton @click="goDraw">＋ Draw a route</AppButton>
-      <div title="Sign out" style="cursor: pointer; display: flex" @click="emit('sign-out')">
+      <!-- A button, not the design's bare div: signing out is a real action
+           and must be reachable by keyboard. Styling is stripped back so it
+           still renders as just the avatar. -->
+      <button
+        type="button"
+        title="Sign out"
+        aria-label="Sign out"
+        class="sign-out"
+        @click="emit('sign-out')"
+      >
         <AvatarInitials :name="userName" :size="34" bg="accent-2" />
-      </div>
+      </button>
     </div>
   </nav>
 </template>
+
+<style scoped>
+.sign-out {
+  display: flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 999px;
+}
+</style>
