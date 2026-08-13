@@ -321,8 +321,34 @@ All list responses should return decorated DTOs so the frontend renders labels w
 
 ## 8. Map implementation (Leaflet) — copy the prototype's behavior
 
-1. **Setup**: OSM tiles `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`, maxZoom 18, attribution "© OpenStreetMap". Default view `[45.9, 15.96]` zoom 12, `preferCanvas: true`. Hero mode: no zoom control, no scroll-wheel zoom. View/draw: zoom control bottom-right. Apply the tile-pane desaturation filter (§4).
-2. **Route rendering (view/hero)**: two stacked polylines — halo `#8c491a` weight 7 opacity .25, main `#c67139` weight 4, round joins; start/end `circleMarker`s radius 7, stroke `#f5ead8` weight 3, fill start `#c67139` / end `#56633f`. `fitBounds(bounds.pad(0.25), { animate: false })` on shape change.
+1. **Setup**: OSM tiles `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`, maxZoom 18, attribution "© OpenStreetMap". Apply the tile-pane desaturation filter (§4). The design's own init call, verbatim from `TrailShare.dc.html:564-565` — prefer these exact options over the prose:
+
+   ```js
+   L.map(el, {
+     preferCanvas: true,
+     zoomControl: mode !== 'hero',
+     attributionControl: true,
+     scrollWheelZoom: mode !== 'hero',
+     dragging: true,
+   }).setView([45.9, 15.96], 12)
+
+   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+     maxZoom: 18,
+     attribution: '© OpenStreetMap',
+   }).addTo(map)
+   ```
+
+   Note the design leaves the zoom control in Leaflet's default top-left position; an earlier draft of this spec said bottom-right, which the source does not do.
+2. **Route rendering (view/hero)**, verbatim from `TrailShare.dc.html:601-613`:
+
+   ```js
+   L.polyline(pts, { color: '#8c491a', weight: 7, opacity: .25, lineJoin: 'round' })
+   L.polyline(pts, { color: '#c67139', weight: 4, dashArray: mode === 'draw' ? '1 0' : null, lineJoin: 'round' })
+   // start (i === 0) and end marker:
+   L.circleMarker(p, { radius: 7, color: '#f5ead8', weight: 3, fillColor: i ? '#56633f' : '#c67139', fillOpacity: 1 })
+   // refit, but never while drawing:
+   if ((fit || changedShape) && mode !== 'draw') map.fitBounds(L.latLngBounds(pts).pad(0.25), { animate: false })
+   ```
 3. **Draw mode**: same polylines (solid), plus one numbered draggable `divIcon` (`.ts-wp`, 20×20, anchor center) per waypoint. Map `click` appends a point; marker `drag` replaces point i. No auto-fit while drawing.
 4. **Stats formulas** (used for card/detail labels AND the live draw sidebar — keep identical front and back):
    - distance = haversine sum over consecutive points (R = 6371 km).
