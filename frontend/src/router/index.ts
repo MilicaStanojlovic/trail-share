@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppLayout from '@/layouts/AppLayout.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
+import DiscoverView from '@/views/DiscoverView.vue'
+import RouteDetailView from '@/views/RouteDetailView.vue'
 import AuthView from '@/views/AuthView.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -14,7 +16,7 @@ const router = createRouter({
       // and stay siblings — /routes/new must not be swallowed by /routes.
       children: [
         { path: '', redirect: '/routes' },
-        { path: '/routes', name: 'routes', component: PlaceholderView },
+        { path: '/routes', name: 'routes', component: DiscoverView },
         { path: '/tours', name: 'tours', component: PlaceholderView },
         { path: '/my', name: 'my', component: PlaceholderView },
         {
@@ -24,6 +26,7 @@ const router = createRouter({
           meta: { guideOnly: true },
         },
         { path: '/routes/new', name: 'draw', component: PlaceholderView },
+        { path: '/routes/:id', name: 'route-detail', component: RouteDetailView },
       ],
     },
     {
