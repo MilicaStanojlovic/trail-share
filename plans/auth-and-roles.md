@@ -53,37 +53,37 @@ Frontend token storage: localStorage key **`trailshare.token`** (constant `TOKEN
 
 ## Tasks
 
-- [ ] **T1 — Backend dependencies and config**
+- [x] **T1 — Backend dependencies and config**
   - Files: `backend/package.json` (edit, via npm), `backend/.env.example` (edit)
   - Do: In `backend/`, run `npm install @nestjs/jwt bcryptjs` (bcryptjs v3 — pure-JS bcrypt, ships its own types; chosen over native `bcrypt` to avoid node-gyp on Windows). Append to `.env.example` under a new comment `# Auth`: `JWT_SECRET=` with a comment line saying any long random string; the app falls back to `dev-only-secret` outside production.
   - Done when: `npm install` exits 0 and `@nestjs/jwt` + `bcryptjs` appear in `backend/package.json` dependencies; `.env.example` documents `JWT_SECRET`; `npm run build` in `backend/` still passes.
 
-- [ ] **T2 — User entity and Users module**
+- [x] **T2 — User entity and Users module**
   - Files: `backend/src/users/user.entity.ts` (new), `backend/src/users/users.service.ts` (new), `backend/src/users/users.module.ts` (new), `backend/src/app.module.ts` (edit)
   - Do: `user.entity.ts`: export `enum UserRole { HIKER = 'HIKER', GUIDE = 'GUIDE' }` and `@Entity('users') User` with `@PrimaryGeneratedColumn('uuid') id: string`; `@Column({ length: 80 }) displayName: string`; `@Column({ unique: true }) email: string` (stored lowercase); `@Column() passwordHash: string`; `@Column({ type: 'enum', enum: UserRole }) role: UserRole` (immutable — the service exposes no update path); `@CreateDateColumn() createdAt: Date`. `users.service.ts`: `UsersService` injecting `Repository<User>` with `create(data: { displayName: string; email: string; passwordHash: string; role: UserRole }): Promise<User>` (repository create+save), `findByEmail(email: string): Promise<User | null>` (matches against lowercased input), `findById(id: string): Promise<User | null>`. `users.module.ts`: imports `TypeOrmModule.forFeature([User])`, provides and **exports** `UsersService` (and re-exports `TypeOrmModule` is not needed). Register `UsersModule` in `app.module.ts` imports.
   - Done when: `npm run build` passes in `backend/`; starting the dev server against local Postgres creates the `users` table (synchronize) with a unique index on `email`.
 
-- [ ] **T3 — Auth DTOs**
+- [x] **T3 — Auth DTOs**
   - Files: `backend/src/auth/dto/register.dto.ts` (new), `backend/src/auth/dto/login.dto.ts` (new)
   - Do: `RegisterDto`: `displayName` — `@IsString() @IsNotEmpty() @MaxLength(80)` with `@Transform(({ value }) => typeof value === 'string' ? value.trim() : value)`; `email` — `@IsEmail()` + `@Transform` to `trim().toLowerCase()`; `password` — `@IsString() @MinLength(8, { message: 'Password must be at least 8 characters' }) @Matches(/\d/, { message: 'Password must contain at least one number' })`; `role` — `@IsEnum(UserRole)` (import from `../../users/user.entity`). `LoginDto`: `email` — `@IsEmail()` + same lowercase transform; `password` — `@IsString() @IsNotEmpty()` only (no strength rule on login). Every field decorated — the global pipe strips undecorated fields.
   - Done when: `npm run build` passes; both DTOs export classes with every field carrying at least one class-validator decorator.
 
-- [ ] **T4 — AuthService and AuthModule (JWT wiring)**
+- [x] **T4 — AuthService and AuthModule (JWT wiring)**
   - Files: `backend/src/auth/auth.service.ts` (new), `backend/src/auth/auth.module.ts` (new), `backend/src/app.module.ts` (edit)
   - Do: `auth.module.ts`: imports `UsersModule` and `JwtModule.registerAsync({ global: true, inject: [ConfigService], useFactory: (config) => ({ secret: config.get<string>('JWT_SECRET', 'dev-only-secret'), signOptions: { expiresIn: '24h' } }) })`; provides `AuthService`; exports `AuthService`. `auth.service.ts`: `AuthService` injecting `UsersService` and `JwtService`. Public type `AuthPayload = { token: string; user: PublicUser }` with `PublicUser = { id: string; displayName: string; email: string; role: UserRole }`. Methods: `register(dto: RegisterDto)` — `findByEmail`; if found throw `ConflictException('Email is already registered')`; `passwordHash = await bcrypt.hash(dto.password, 10)` (import `{ hash, compare }` from `'bcryptjs'`); create user; return `this.buildAuthPayload(user)`. `login(dto: LoginDto)` — `findByEmail`; if missing OR `!(await compare(dto.password, user.passwordHash))` throw `UnauthorizedException('Invalid email or password')`; return `buildAuthPayload(user)`. Private `buildAuthPayload(user)` — signs `{ sub: user.id, email: user.email, role: user.role }` with `jwtService.signAsync` and returns `{ token, user: toPublicUser(user) }`; `toPublicUser` picks exactly `id, displayName, email, role`. Register `AuthModule` in `app.module.ts`.
   - Done when: `npm run build` passes; `AuthService` exposes `register` and `login` returning `{ token, user }` with no `passwordHash` anywhere in the return type.
 
-- [ ] **T5 — JwtAuthGuard and @CurrentUser()**
+- [x] **T5 — JwtAuthGuard and @CurrentUser()**
   - Files: `backend/src/auth/auth-user.ts` (new), `backend/src/auth/jwt-auth.guard.ts` (new), `backend/src/auth/current-user.decorator.ts` (new), `backend/src/auth/auth.module.ts` (edit)
   - Do: `auth-user.ts`: export `interface AuthUser { id: string; displayName: string; email: string; role: UserRole }` and `interface JwtPayload { sub: string; email: string; role: UserRole }`. `jwt-auth.guard.ts`: injectable `JwtAuthGuard implements CanActivate` injecting `JwtService` and `UsersService`: read `request.headers.authorization`; require the `Bearer <token>` shape; `verifyAsync<JwtPayload>(token)` in try/catch; load the user with `usersService.findById(payload.sub)`; any failure (missing header, bad scheme, invalid/expired token, user gone) throws `UnauthorizedException`; on success set `request.user = { id, displayName, email, role }` (an `AuthUser`, fresh from DB so role/name are never stale) and return true. `current-user.decorator.ts`: `createParamDecorator((_, ctx) => ctx.switchToHttp().getRequest().user as AuthUser)` exported as `CurrentUser`. Add `JwtAuthGuard` to `AuthModule` providers and exports.
   - Done when: `npm run build` passes; the guard and decorator are exported from their files and the guard is exported by `AuthModule`.
 
-- [ ] **T6 — @Roles() decorator and RolesGuard**
+- [x] **T6 — @Roles() decorator and RolesGuard**
   - Files: `backend/src/auth/roles.decorator.ts` (new), `backend/src/auth/roles.guard.ts` (new), `backend/src/auth/auth.module.ts` (edit)
   - Do: `roles.decorator.ts`: `export const ROLES_KEY = 'roles'` and `export const Roles = (...roles: \`${UserRole}\`[]) => SetMetadata(ROLES_KEY, roles)` — so call sites can write `@Roles('GUIDE')` with a string literal. `roles.guard.ts`: injectable `RolesGuard implements CanActivate` injecting `Reflector`: `getAllAndOverride<string[]>(ROLES_KEY, [handler, class])`; if no metadata or empty list → return true; read `request.user` (populated by `JwtAuthGuard`, which must be listed first in `@UseGuards`); if user missing or `!roles.includes(user.role)` throw `ForbiddenException`; else true. Add `RolesGuard` to `AuthModule` providers and exports. Guards stay opt-in per route (no global `APP_GUARD`) — `/api/health` and the auth endpoints remain public by default.
   - Done when: `npm run build` passes; `@Roles('GUIDE')` compiles on a handler and `RolesGuard` is exported by `AuthModule`.
 
-- [ ] **T7 — AuthController**
+- [x] **T7 — AuthController**
   - Files: `backend/src/auth/auth.controller.ts` (new), `backend/src/auth/auth.module.ts` (edit)
   - Do: `@Controller('auth')` with three thin handlers: `@Post('register') register(@Body() dto: RegisterDto)` → `authService.register(dto)` (default 201); `@Post('login') @HttpCode(200) login(@Body() dto: LoginDto)` → `authService.login(dto)`; `@Get('me') @UseGuards(JwtAuthGuard) me(@CurrentUser() user: AuthUser)` → returns `user` as-is. No logic in the controller. Register the controller in `AuthModule`.
   - Done when: `npm run build` passes; with the dev server running, `POST /api/auth/register` with a valid body returns 201 `{ token, user }` and `GET /api/auth/me` without a token returns 401.
