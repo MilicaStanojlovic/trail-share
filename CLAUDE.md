@@ -26,6 +26,7 @@ The backend serves everything under the `/api` prefix; `GET /api/health` returns
 ## Repository layout
 
 ```
+ROADMAP.md        slice-by-slice status: what is merged, what is in flight, what is next
 backend/          NestJS API
 frontend/         Vue 3 SPA
 design/           local copies of the Claude Design source (read-only reference)
@@ -126,3 +127,5 @@ Features are built with the **`new-feature`** skill, which sequences four role a
 Flow: branch from develop → plan → implement task-by-task (**sequentially** — they share one working tree) → review → fix findings → test → commit, push, merge to develop.
 
 The plan file in `plans/` is the shared state between agents; each agent invocation starts with no memory of the others, so anything that must survive between them belongs in that file.
+
+`ROADMAP.md` is the human-facing view of the same work: the seven slices from `docs/design-spec.md` §9 with their current stage. The orchestrator updates it whenever a slice changes stage — planned, implementing, reviewed, tested, merged.
