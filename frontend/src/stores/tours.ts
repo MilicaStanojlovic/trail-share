@@ -54,10 +54,18 @@ export const useToursStore = defineStore('tours', () => {
     }
   }
 
-  // Only `mine` is per-user; `list`, `current` and `routeTours` are public data.
-  // Same reason as the reset in stores/bookings.ts.
+  // Same reason as the reset in stores/bookings.ts — but every field here is
+  // per-viewer, not just `mine`. A Tour carries `isBookedByMe`, and `current`
+  // may carry the guide-only `roster` of other hikers' names. Leaving `current`
+  // behind would re-expose a roster the API deliberately withholds from
+  // everyone but the owning guide: fetchTour skips its clear when the id is
+  // unchanged, so the next account opening that same tour renders the previous
+  // guide's roster until the GET resolves.
   function reset(): void {
     mine.value = []
+    list.value = []
+    current.value = null
+    routeTours.value = []
   }
 
   // Errors are intentionally left to bubble up so the calling dialog can

@@ -35,7 +35,10 @@ const nextTourNote = computed(() => {
   if (days === null) return 'no upcoming tours'
   if (days === 0) return 'next is today'
   if (days === 1) return 'next in 1 day'
-  return 'next in ' + days + ' days'
+  // Clamped because CURRENT_DATE (the database's calendar day) and daysUntil
+  // (the API process's) can straddle midnight in different timezones, which
+  // would otherwise render the literal "next in -1 days".
+  return 'next in ' + Math.max(days, 0) + ' days'
 })
 
 // DataTable is generic over Record<string, unknown>, so the row type has to
