@@ -6,6 +6,8 @@ import { RoutesService } from './routes.service';
 import { Route, RouteActivity, RouteDifficulty } from './route.entity';
 import { User, UserRole } from '../users/user.entity';
 import { computeRouteStats } from './route-stats';
+import { CreateRouteDto } from './dto/create-route.dto';
+import { RouteDto } from './dto/route-dto';
 
 type QueryBuilderMock = {
   leftJoin: jest.Mock<QueryBuilderMock, [string, string]>;
@@ -34,13 +36,21 @@ const queryBuilderMock: QueryBuilderMock = {
 };
 
 type RoutesRepositoryMock = jest.Mocked<
-  Pick<Repository<Route>, 'createQueryBuilder'>
+  Pick<Repository<Route>, 'createQueryBuilder' | 'create' | 'save'>
 >;
 
 const routesRepositoryMock: RoutesRepositoryMock = {
   createQueryBuilder: jest.fn(
     () => queryBuilderMock,
   ) as unknown as RoutesRepositoryMock['createQueryBuilder'],
+  create: jest.fn(() => ({
+    id: 'route-1',
+  })) as unknown as RoutesRepositoryMock['create'],
+  save: jest.fn(() =>
+    Promise.resolve({
+      id: 'route-1',
+    }),
+  ) as unknown as RoutesRepositoryMock['save'],
 };
 
 describe('RoutesService', () => {
@@ -145,6 +155,176 @@ describe('RoutesService', () => {
       await expect(
         service.findById('33333333-3333-4333-8333-333333333333'),
       ).rejects.toThrow('Route not found');
+    });
+  });
+
+  describe('create', () => {
+    const createWaypoints: [number, number][] = [
+      [45.9, 15.9],
+      [45.91, 15.91],
+    ];
+
+    function arrangeCreate(): {
+      routeDto: RouteDto;
+      findByIdSpy: jest.SpyInstance<Promise<RouteDto>, [string]>;
+    } {
+      routesRepositoryMock.create.mockReturnValue({
+        id: 'route-1',
+      } as Route);
+      routesRepositoryMock.save.mockResolvedValue({
+        id: 'route-1',
+      } as Route);
+      const routeDto: RouteDto = {
+        id: 'route-1',
+        name: 'Sljeme Summit Climb',
+        description: 'Steep but shaded.',
+        difficulty: RouteDifficulty.HARD,
+        activity: RouteActivity.HIKING,
+        author: {
+          id: author.id,
+          displayName: author.displayName,
+        },
+        waypoints: createWaypoints,
+        waypointCount: createWaypoints.length,
+        tourCount: 0,
+        distanceKm: 0,
+        distanceLabel: '0.0 km',
+        elevationM: 0,
+        elevationLabel: '0 m',
+        durationLabel: '0 min',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      };
+      const findByIdSpy = jest
+        .spyOn(service, 'findById')
+        .mockResolvedValue(routeDto);
+      return { routeDto, findByIdSpy };
+    }
+
+    it('sets authorId from the argument and passes the literal waypoints through', async () => {
+      const { routeDto, findByIdSpy } = arrangeCreate();
+      const dto: CreateRouteDto = {
+        name: 'Sljeme Summit Climb',
+        description: 'Steep but shaded.',
+        difficulty: RouteDifficulty.HARD,
+        activity: RouteActivity.HIKING,
+        waypoints: createWaypoints,
+      };
+
+      const result = await service.create(dto, 'author-9');
+
+      expect(routesRepositoryMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          authorId: 'author-9',
+          name: 'Sljeme Summit Climb',
+          difficulty: RouteDifficulty.HARD,
+          activity: RouteActivity.HIKING,
+          waypoints: createWaypoints,
+        }),
+      );
+      expect(routesRepositoryMock.save).toHaveBeenCalledWith(
+        routesRepositoryMock.create.mock.results[0].value,
+      );
+      expect(findByIdSpy).toHaveBeenCalledWith('route-1');
+      expect(findByIdSpy).toHaveBeenCalledTimes(1);
+      expect(result).toBe(routeDto);
+    });
+
+    it('defaults the description when it is undefined', async () => {
+      arrangeCreate();
+      const dto: CreateRouteDto = {
+        name: 'Sljeme Summit Climb',
+        difficulty: RouteDifficulty.HARD,
+        activity: RouteActivity.HIKING,
+        waypoints: createWaypoints,
+      };
+
+      await service.create(dto, 'author-9');
+
+      expect(routesRepositoryMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'No description yet.',
+        }),
+      );
+    });
+
+    it('defaults the description when it is the empty string', async () => {
+      arrangeCreate();
+      const dto: CreateRouteDto = {
+        name: 'Sljeme Summit Climb',
+        description: '',
+        difficulty: RouteDifficulty.HARD,
+        activity: RouteActivity.HIKING,
+        waypoints: createWaypoints,
+      };
+
+      await service.create(dto, 'author-9');
+
+      expect(routesRepositoryMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'No description yet.',
+        }),
+      );
+    });
+
+    it('defaults the description when it is three spaces', async () => {
+      arrangeCreate();
+      const dto: CreateRouteDto = {
+        name: 'Sljeme Summit Climb',
+        description: '   ',
+        difficulty: RouteDifficulty.HARD,
+        activity: RouteActivity.HIKING,
+        waypoints: createWaypoints,
+      };
+
+      await service.create(dto, 'author-9');
+
+      expect(routesRepositoryMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'No description yet.',
+        }),
+      );
+    });
+
+    it('keeps and trims a real description', async () => {
+      arrangeCreate();
+      const dto: CreateRouteDto = {
+        name: 'Sljeme Summit Climb',
+        description: ' Steep but shaded. ',
+        difficulty: RouteDifficulty.HARD,
+        activity: RouteActivity.HIKING,
+        waypoints: createWaypoints,
+      };
+
+      await service.create(dto, 'author-9');
+
+      expect(routesRepositoryMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'Steep but shaded.',
+        }),
+      );
+    });
+
+    it('a body that smuggles its own authorId cannot publish as someone else', async () => {
+      arrangeCreate();
+      const dto = Object.assign(
+        {
+          name: 'Sljeme Summit Climb',
+          description: 'Steep but shaded.',
+          difficulty: RouteDifficulty.HARD,
+          activity: RouteActivity.HIKING,
+          waypoints: createWaypoints,
+        },
+        { authorId: 'attacker-id' },
+      ) as CreateRouteDto;
+
+      await service.create(dto, 'author-9');
+
+      expect(routesRepositoryMock.create).toHaveBeenCalledWith(
+        expect.objectContaining({ authorId: 'author-9' }),
+      );
+      expect(routesRepositoryMock.create).toHaveBeenCalledWith(
+        expect.not.objectContaining({ authorId: 'attacker-id' }),
+      );
     });
   });
 
