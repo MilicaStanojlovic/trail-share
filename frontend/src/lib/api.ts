@@ -8,6 +8,8 @@
 
 const BASE_URL = '/api'
 
+export const TOKEN_STORAGE_KEY = 'trailshare.token'
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -28,11 +30,20 @@ interface RequestOptions {
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', body, signal } = options
 
+  const headers: Record<string, string> = {}
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json'
+  }
+  const token = localStorage.getItem(TOKEN_STORAGE_KEY)
+  if (token !== null && token !== '') {
+    headers.Authorization = `Bearer ${token}`
+  }
+
   const response = await fetch(`${BASE_URL}${path}`, {
     method,
     signal,
     credentials: 'include',
-    headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+    headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   })
 
