@@ -5,7 +5,7 @@ import {
   destroyE2eContext,
   E2eContext,
 } from './postgres-testcontainer';
-import type { UserRole } from '../src/users/user.entity';
+import { UserRole } from '../src/users/user.entity';
 
 interface PublicUser {
   id: string;
@@ -25,15 +25,15 @@ interface ErrorResponseBody {
 }
 
 const fixture = {
-  displayName: 'Ivana Kovac',
+  displayName: 'Ivana Kovač',
   email: 'ivana@trailshare.hr',
   password: 'trailshare1',
-  role: 'GUIDE' as UserRole,
+  role: UserRole.GUIDE,
 };
 
 describe('AuthController (e2e)', () => {
   let ctx: E2eContext;
-  let token: string;
+  // Captured by the register case and reused by the login and me cases.
   let userId: string;
   let loginToken: string;
 
@@ -51,7 +51,7 @@ describe('AuthController (e2e)', () => {
       .send(fixture)
       .expect(201);
 
-    const body: AuthResponseBody = response.body as AuthResponseBody;
+    const body = response.body as AuthResponseBody;
     expect(typeof body.token).toBe('string');
     expect(body.token.length).toBeGreaterThan(0);
     expect(typeof body.user.id).toBe('string');
@@ -60,9 +60,7 @@ describe('AuthController (e2e)', () => {
     expect(body.user.role).toBe(fixture.role);
     expect(body.user).not.toHaveProperty('passwordHash');
 
-    token = body.token;
     userId = body.user.id;
-    expect(token).toBeDefined();
   });
 
   it('POST /api/auth/register with the same email in different casing returns 409', async () => {
@@ -76,7 +74,7 @@ describe('AuthController (e2e)', () => {
       })
       .expect(409);
 
-    const body: ErrorResponseBody = response.body as ErrorResponseBody;
+    const body = response.body as ErrorResponseBody;
     expect(body.message).toBe('Email is already registered');
   });
 
@@ -138,7 +136,7 @@ describe('AuthController (e2e)', () => {
       })
       .expect(200);
 
-    const body: AuthResponseBody = response.body as AuthResponseBody;
+    const body = response.body as AuthResponseBody;
     expect(typeof body.token).toBe('string');
     expect(body.token.length).toBeGreaterThan(0);
     expect(body.user).toEqual({
@@ -161,7 +159,7 @@ describe('AuthController (e2e)', () => {
       })
       .expect(401);
 
-    const body: ErrorResponseBody = response.body as ErrorResponseBody;
+    const body = response.body as ErrorResponseBody;
     expect(body.message).toBe('Invalid email or password');
   });
 
@@ -181,7 +179,7 @@ describe('AuthController (e2e)', () => {
       .set('Authorization', `Bearer ${loginToken}`)
       .expect(200);
 
-    const body: PublicUser = response.body as PublicUser;
+    const body = response.body as PublicUser;
     expect(body).toEqual({
       id: userId,
       displayName: fixture.displayName,
@@ -195,7 +193,7 @@ describe('AuthController (e2e)', () => {
       .get('/api/auth/me')
       .expect(401);
 
-    const body: ErrorResponseBody = response.body as ErrorResponseBody;
+    const body = response.body as ErrorResponseBody;
     expect(body.statusCode).toBe(401);
     expect(body.message).toBe('Unauthorized');
   });
@@ -206,7 +204,7 @@ describe('AuthController (e2e)', () => {
       .set('Authorization', 'Bearer garbage')
       .expect(401);
 
-    const body: ErrorResponseBody = response.body as ErrorResponseBody;
+    const body = response.body as ErrorResponseBody;
     expect(body.statusCode).toBe(401);
     expect(body.message).toBe('Unauthorized');
   });
