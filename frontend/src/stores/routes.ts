@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { api } from '../lib/api'
-import type { TrailRoute, Difficulty } from '../types/domain'
+import type { TrailRoute, Difficulty, CreateRoutePayload } from '../types/domain'
 
 export const useRoutesStore = defineStore('routes', () => {
   const list = ref<TrailRoute[]>([])
@@ -52,6 +52,13 @@ export const useRoutesStore = defineStore('routes', () => {
     }
   }
 
+  // The created route is appended to the end of the list to match the createdAt ASC ordering.
+  async function publishRoute(payload: CreateRoutePayload): Promise<TrailRoute> {
+    const route = await api.post<TrailRoute>('/routes', payload)
+    list.value.push(route)
+    return route
+  }
+
   return {
     list,
     current,
@@ -62,5 +69,6 @@ export const useRoutesStore = defineStore('routes', () => {
     visibleRoutes,
     fetchRoutes,
     fetchRoute,
+    publishRoute,
   }
 })

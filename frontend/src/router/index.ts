@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 import DiscoverView from '@/views/DiscoverView.vue'
 import RouteDetailView from '@/views/RouteDetailView.vue'
+import DrawRouteView from '@/views/DrawRouteView.vue'
 import AuthView from '@/views/AuthView.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -25,7 +26,7 @@ const router = createRouter({
           component: PlaceholderView,
           meta: { guideOnly: true },
         },
-        { path: '/routes/new', name: 'draw', component: PlaceholderView },
+        { path: '/routes/new', name: 'draw', component: DrawRouteView },
         { path: '/routes/:id', name: 'route-detail', component: RouteDetailView },
       ],
     },

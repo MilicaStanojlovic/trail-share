@@ -39,3 +39,11 @@ export interface TrailRoute {
   durationLabel: string
   createdAt: string
 }
+
+export interface CreateRoutePayload {
+  name: string
+  description?: string
+  difficulty: Difficulty
+  activity: Activity
+  waypoints: [number, number][]
+}
