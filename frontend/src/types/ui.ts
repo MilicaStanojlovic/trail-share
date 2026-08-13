@@ -25,7 +25,9 @@ export function seatTagState(
     return { variant: 'accent-2', label: 'You are in' }
   }
 
-  if (seatsLeft === 0) {
+  // <= 0, not === 0: an over-booked tour (a booking race, or a guide lowering
+  // capacity after seats sold) must still read "Full" rather than "-1 seats left".
+  if (seatsLeft <= 0) {
     return { variant: 'accent', label: 'Full' }
   }
 

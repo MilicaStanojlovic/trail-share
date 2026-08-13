@@ -45,7 +45,7 @@ onUnmounted(() => {
       <div class="dialog" style="animation: ts-pop 0.2s ease both">
         <div class="dialog-title">{{ title }}</div>
         <slot />
-        <div class="dialog-actions">
+        <div v-if="$slots.actions" class="dialog-actions">
           <slot name="actions" />
         </div>
       </div>
