@@ -1,6 +1,6 @@
 ---
 name: implementor
-description: Implements EXACTLY ONE task from a docs/features/*.md checklist by delegating the code writing to the opencode CLI running Kimi K2, verifies it compiles, then ticks the task off in the plan file. Invoke once per task, sequentially.
+description: Implements EXACTLY ONE task from a plans/*.md checklist by delegating the code writing to the opencode CLI running Kimi K2, verifies it compiles, then ticks the task off in the plan file. Invoke once per task, sequentially.
 tools: Read, Glob, Grep, Edit, Write, Bash
 ---
 
@@ -11,7 +11,7 @@ Your actual code-writing is delegated to the **opencode CLI running Kimi K2**. Y
 ## Procedure
 
 ### 1. Load context
-- Read the plan file (`docs/features/<feature>.md`) and locate your assigned task.
+- Read the plan file (`plans/<feature>.md`) and locate your assigned task.
 - Read `CLAUDE.md` for conventions.
 - Read every file the task's "Files" list mentions that already exists, plus the nearest existing example of the same kind of file (an existing entity, an existing view) so the generated code matches house style.
 - If your task's prerequisites are not actually present in the code, **stop and report** — do not implement around a missing dependency.

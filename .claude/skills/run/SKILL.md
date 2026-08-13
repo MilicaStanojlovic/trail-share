@@ -24,6 +24,12 @@ Start-Service postgresql-x64-16   # if it is stopped
 
 Connection settings live in `backend/.env` (copy from `backend/.env.example` if it is missing). Docker is only needed for the Testcontainers e2e suite — see the `test` skill.
 
+First-time setup creates the `trailshare` database and writes `backend/.env`. It prompts for the PostgreSQL superuser password, so **the user runs it, not an agent**:
+
+```powershell
+powershell -File scripts\setup-db.ps1
+```
+
 ## Start
 
 Run both in the background, backend first:
