@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  .leaflet-tile-pane { filter: saturate(0.55) contrast(0.9) brightness(1.06) sepia(0.1); }
+  .leaflet-container { background: #ddd3bf; font-family: var(--font-body); }
+  .leaflet-control-attribution { font-size: 9px; background: rgba(245,234,216,.7) !important; }
+  @keyframes ts-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes ts-pop { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+  .ts-wp { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 999px; background: #c67139; color: #f5ead8; font: 700 10px/1 "Figtree", sans-serif; box-shadow: 0 0 0 3px rgba(245,234,216,.85); }
+</style>
+</helmet>
+
+<sc-if value="{{ isAuth }}" hint-placeholder-val="{{ false }}">
+<div style="min-height: 100vh; display: grid; grid-template-columns: 1.05fr 1fr; background: var(--color-bg); color: var(--color-text)">
+  <div style="padding: 48px 56px; display: flex; flex-direction: column; gap: 28px; max-width: 560px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div style="width: 30px; height: 30px; border-radius: 999px; background: var(--color-accent-2); box-shadow: inset -7px -7px 0 var(--color-accent)"></div>
+      <span style="font-family: var(--font-heading); font-size: 21px">TrailShare</span>
+    </div>
+    <div style="margin-top: 8px">
+      <h1 style="font-size: 52px; max-width: 9em; margin-bottom: 12px">Draw the trail. Bring people along.</h1>
+      <p style="font-size: 16px; max-width: 34em; opacity: .8">Sketch a route on the map, tag how hard it is, and publish. Guides schedule tours on it — hikers book a seat.</p>
+    </div>
+
+    <div class="seg" style="align-self: flex-start">
+      <label class="seg-opt" style="white-space: nowrap"><input type="radio" name="ts-authmode" checked="{{ modeLogin }}" onChange="{{ toLogin }}">Log in</label>
+      <label class="seg-opt" style="white-space: nowrap"><input type="radio" name="ts-authmode" checked="{{ modeReg }}" onChange="{{ toRegister }}">Register</label>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px; max-width: 400px">
+      <sc-if value="{{ modeReg }}" hint-placeholder-val="{{ false }}">
+        <div class="field"><label>Display name</label><input class="input" value="Ivana Kovač"></div>
+      </sc-if>
+      <div class="field"><label>Email</label><input class="input" value="ivana@trailshare.hr"></div>
+      <div class="field">
+        <label>Password</label>
+        <input class="input" type="password" value="passphrase">
+        <div style="font-size: 11px; margin-top: 5px; color: var(--color-accent-2-700)">✓ 8+ characters, one number</div>
+      </div>
+
+      <sc-if value="{{ modeReg }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px">
+          <label style="font-size: 12px; opacity: .7">Pick your role — this is fixed after registration</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+            <div onClick="{{ pickGuide }}" style="{{ guideCardStyle }}">
+              <div style="font-family: var(--font-heading); font-size: 16px">Guide</div>
+              <div style="font-size: 12px; opacity: .75">Publish routes and schedule guided tours.</div>
+            </div>
+            <div onClick="{{ pickHiker }}" style="{{ hikerCardStyle }}">
+              <div style="font-family: var(--font-heading); font-size: 16px">Hiker</div>
+              <div style="font-size: 12px; opacity: .75">Browse upcoming tours and book a seat.</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <button class="btn btn-primary btn-block" onClick="{{ signIn }}" style="min-height: 42px; font-size: 15px">{{ authCta }}</button>
+      <div style="font-size: 12px; opacity: .6">Protected by JWT — session lasts 24 h.</div>
+    </div>
+  </div>
+
+  <div style="position: relative; overflow: hidden; background: var(--color-surface)">
+    <div ref="{{ mapRef }}" data-mapmode="hero" style="position: absolute; inset: 0"></div>
+    <div style="position: absolute; left: 28px; bottom: 28px; padding: 14px 18px; border-radius: 28px; background: var(--color-bg); box-shadow: var(--shadow-lg); display: flex; gap: 22px; align-items: center">
+      <div>
+        <div style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--color-accent)">Featured</div>
+        <div style="font-family: var(--font-heading); font-size: 17px">{{ heroName }}</div>
+      </div>
+      <span class="tag tag-neutral">{{ heroMeta }}</span>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isApp }}" hint-placeholder-val="{{ true }}">
+<div style="min-height: 100vh; background: var(--color-bg); color: var(--color-text)">
+  <div class="nav" style="padding: 14px 32px; display: flex; align-items: center; gap: 26px; position: sticky; top: 0; z-index: 500; background: var(--color-bg)">
+    <div class="nav-brand" style="display: flex; align-items: center; gap: 9px; margin-right: 18px">
+      <div style="width: 24px; height: 24px; border-radius: 999px; background: var(--color-accent-2); box-shadow: inset -6px -6px 0 var(--color-accent)"></div>
+      TrailShare
+    </div>
+    <a href="#" onClick="{{ goDiscover }}" aria-current="{{ curDiscover }}">Routes</a>
+    <a href="#" onClick="{{ goTours }}" aria-current="{{ curTours }}">Tours</a>
+    <a href="#" onClick="{{ goMine }}" aria-current="{{ curMine }}">{{ mineLabel }}</a>
+    <sc-if value="{{ isGuide }}" hint-placeholder-val="{{ true }}">
+      <a href="#" onClick="{{ goDash }}" aria-current="{{ curDash }}">Dashboard</a>
+    </sc-if>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 14px">
+      <div class="seg" style="font-size: 12px">
+        <label class="seg-opt" style="white-space: nowrap"><input type="radio" name="ts-role" checked="{{ isHiker }}" onChange="{{ setHiker }}">Hiker</label>
+        <label class="seg-opt" style="white-space: nowrap"><input type="radio" name="ts-role" checked="{{ isGuide }}" onChange="{{ setGuide }}">Guide</label>
+      </div>
+      <button class="btn btn-primary" onClick="{{ goDraw }}">＋ Draw a route</button>
+      <div onClick="{{ signOut }}" title="Sign out" style="width: 34px; height: 34px; border-radius: 999px; background: var(--color-accent-2-300); display: grid; place-items: center; font-size: 12px; font-weight: 700; cursor: pointer">IK</div>
+    </div>
+  </div>
+
+  <sc-if value="{{ scDiscover }}" hint-placeholder-val="{{ true }}">
+    <div style="padding: 26px 32px 56px; animation: ts-rise .35s ease both">
+      <div style="display: flex; align-items: flex-end; gap: 24px; margin-bottom: 22px">
+        <div>
+          <h2 style="margin-bottom: 4px">Published routes</h2>
+          <p style="margin: 0; opacity: .7; font-size: 14px">{{ routeCountLabel }} around Zagreb and the Medvednica hills.</p>
+        </div>
+        <div style="margin-left: auto; display: flex; gap: 10px; align-items: center">
+          <input class="input" placeholder="Search routes" style="width: 210px">
+          <div class="seg">
+            <label class="seg-opt" style="white-space: nowrap"><input type="radio" name="ts-diff" checked="{{ fAll }}" onChange="{{ filtAll }}">All</label>
+            <label class="seg-opt" style="white-space: nowrap"><input type="radio" name="ts-diff" checked="{{ fEasy }}" onChange="{{ filtEasy }}">Easy</label>
+            <label class="seg-opt" style="white-space: nowrap"><input type="radio" name="ts-diff" checked="{{ fMod }}" onChange="{{ filtMod }}">Moderate</label>
+            <label class="seg-opt" style="white-space: nowrap"><input type="radio" name="ts-diff" checked="{{ fHard }}" onChange="{{ filtHard }}">Hard</label>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px">
+        <sc-for list="{{ visibleRoutes }}" as="r" hint-placeholder-count="6">
+          <div onClick="{{ r.open }}" class="card elev-sm" style="padding: 0; overflow: hidden; cursor: pointer; gap: 0" style-hover="box-shadow: var(--shadow-lg); transform: translateY(-2px)">
+            <div style="position: relative; height: 148px; background: var(--color-accent-2-200)">
+              <svg viewBox="0 0 100 44" preserveAspectRatio="none" style="position: absolute; inset: 0; width: 100%; height: 100%">
+                <polyline points="{{ r.spark }}" fill="none" stroke="#c67139" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"></polyline>
+              </svg>
+              <div style="position: absolute; left: 12px; top: 12px; display: flex; gap: 6px">
+                <span class="{{ r.diffClass }}">{{ r.difficulty }}</span>
+                <span class="tag tag-neutral">{{ r.activity }}</span>
+              </div>
+            </div>
+            <div style="padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 8px">
+              <div class="card-title" style="font-size: 19px">{{ r.name }}</div>
+              <p class="card-body" style="margin: 0">{{ r.desc }}</p>
+              <div style="display: flex; gap: 16px; font-size: 12px; opacity: .65; margin-top: 2px">
+                <span>{{ r.distLabel }}</span><span>↑ {{ r.elevLabel }}</span><span>{{ r.durLabel }}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; opacity: .8">
+                <div style="width: 22px; height: 22px; border-radius: 999px; background: var(--color-neutral-300); display: grid; place-items: center; font-size: 9px; font-weight: 700">{{ r.initials }}</div>
+                {{ r.author }} · {{ r.tourLabel }}
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ scRoute }}" hint-placeholder-val="{{ false }}">
+    <div style="display: grid; grid-template-columns: 1fr 400px; min-height: calc(100vh - 63px); animation: ts-rise .35s ease both">
+      <div style="position: relative; margin: 0 0 0 32px; border-radius: 28px; overflow: hidden; box-shadow: var(--shadow-md)">
+        <div ref="{{ mapRef }}" data-mapmode="view" style="position: absolute; inset: 0"></div>
+        <button class="btn btn-secondary" onClick="{{ goDiscover }}" style="position: absolute; left: 16px; top: 16px; z-index: 450; background: var(--color-bg)">← All routes</button>
+      </div>
+      <div style="padding: 8px 32px 48px; display: flex; flex-direction: column; gap: 18px">
+        <div style="display: flex; gap: 6px"><span class="{{ route.diffClass }}">{{ route.difficulty }}</span><span class="tag tag-neutral">{{ route.activity }}</span></div>
+        <h2 style="font-size: 34px; margin: 0">{{ route.name }}</h2>
+        <p style="margin: 0; opacity: .8">{{ route.desc }}</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+          <div style="padding: 14px 16px; border-radius: 20px; background: var(--color-surface)">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity: .55">Distance</div>
+            <div style="font-family: var(--font-heading); font-size: 22px">{{ route.distLabel }}</div>
+          </div>
+          <div style="padding: 14px 16px; border-radius: 20px; background: var(--color-surface)">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity: .55">Elevation gain</div>
+            <div style="font-family: var(--font-heading); font-size: 22px">{{ route.elevLabel }}</div>
+          </div>
+          <div style="padding: 14px 16px; border-radius: 20px; background: var(--color-surface)">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity: .55">Est. duration</div>
+            <div style="font-family: var(--font-heading); font-size: 22px">{{ route.durLabel }}</div>
+          </div>
+          <div style="padding: 14px 16px; border-radius: 20px; background: var(--color-surface)">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity: .55">Waypoints</div>
+            <div style="font-family: var(--font-heading); font-size: 22px">{{ route.wpCount }}</div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px">
+          <h4 style="margin: 0">Upcoming tours</h4>
+          <sc-if value="{{ isGuide }}" hint-placeholder-val="{{ false }}">
+            <button class="btn btn-primary" onClick="{{ openSchedule }}">Schedule a tour</button>
+          </sc-if>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <sc-for list="{{ routeTours }}" as="t" hint-placeholder-count="2">
+            <div onClick="{{ t.open }}" class="card" style="cursor: pointer; padding: 14px 16px; gap: 6px" style-hover="box-shadow: var(--shadow-md)">
+              <div style="display: flex; align-items: center; gap: 10px">
+                <div style="font-family: var(--font-heading); font-size: 15px">{{ t.dateLabel }}</div>
+                <span class="{{ t.seatClass }}" style="margin-left: auto">{{ t.seatLabel }}</span>
+              </div>
+              <div style="font-size: 12px; opacity: .7">{{ t.timeLabel }} · {{ t.meet }} · led by {{ t.guide }}</div>
+            </div>
+          </sc-for>
+          <sc-if value="{{ noRouteTours }}" hint-placeholder-val="{{ false }}">
+            <div style="padding: 18px; border-radius: 20px; border: 1px dashed var(--color-divider); font-size: 13px; opacity: .7">No tours scheduled on this route yet.</div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ scDraw }}" hint-placeholder-val="{{ false }}">
+    <div style="display: grid; grid-template-columns: 372px 1fr; min-height: calc(100vh - 63px); animation: ts-rise .35s ease both">
+      <div style="padding: 4px 26px 40px 32px; display: flex; flex-direction: column; gap: 16px">
+        <div>
+          <h3 style="margin-bottom: 4px">Draw a route</h3>
+          <p style="margin: 0; font-size: 13px; opacity: .7">Click the map to drop waypoints. Drag any pin to adjust; the line follows.</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+          <div style="padding: 12px 14px; border-radius: 18px; background: var(--color-surface)">
+            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: .08em; opacity: .55">Distance</div>
+            <div style="font-family: var(--font-heading); font-size: 20px">{{ draftDist }}</div>
+          </div>
+          <div style="padding: 12px 14px; border-radius: 18px; background: var(--color-surface)">
+            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: .08em; opacity: .55">Elev. gain</div>
+            <div style="font-family: var(--font-heading); font-size: 20px">{{ draftElev }}</div>
+          </div>
+          <div style="padding: 12px 14px; border-radius: 18px; background: var(--color-surface)">
+            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: .08em; opacity: .55">Duration</div>
+            <div style="font-family: var(--font-heading); font-size: 20px">{{ draftDur }}</div>
+          </div>
+          <div style="padding: 12px 14px; border-radius: 18px; background: var(--color-surface)">
+            <div style="font-size: 10px; text-transform: uppercase; letter-spacing: .08em; opacity: .55">Waypoints</div>
+            <div style="font-family: var(--font-heading); font-size: 20px">{{ draftCount }}</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px">
+          <button class="btn btn-secondary" onClick="{{ undoPoint }}" disabled="{{ noPoints }}">Undo point</button>
+          <button class="btn btn-secondary" onClick="{{ clearPoints }}" disabled="{{ noPoints }}">Clear</button>
+        </div>
+
+        <div class="field"><label>Route name</label><input class="input" value="{{ draftName }}" onChange="{{ onName }}" placeholder="e.g. Sljeme Summit Climb"></div>
+        <div class="field">
+          <label>Difficulty</label>
+          <div class="seg" style="width: 100%">
+            <label class="seg-opt" style="flex: 1; justify-content: center; white-space: nowrap"><input type="radio" name="ts-dd" checked="{{ dEasy }}" onChange="{{ setEasy }}">Easy</label>
+            <label class="seg-opt" style="flex: 1; justify-content: center; white-space: nowrap"><input type="radio" name="ts-dd" checked="{{ dMod }}" onChange="{{ setMod }}">Moderate</label>
+            <label class="seg-opt" style="flex: 1; justify-content: center; white-space: nowrap"><input type="radio" name="ts-dd" checked="{{ dHard }}" onChange="{{ setHard }}">Hard</label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Activity</label>
+          <div style="display: flex; gap: 18px; padding-top: 2px">
+            <label class="radio"><input type="radio" name="ts-act" checked="{{ aHike }}" onChange="{{ setHike }}"><span class="dot"></span>Hiking</label>
+            <label class="radio"><input type="radio" name="ts-act" checked="{{ aBike }}" onChange="{{ setBike }}"><span class="dot"></span>Biking</label>
+          </div>
+        </div>
+        <div class="field"><label>Description</label><textarea class="input" onChange="{{ onDesc }}" placeholder="What makes this route worth walking?" style="border-radius: 20px; min-height: 76px">{{ draftDesc }}</textarea></div>
+
+        <sc-if value="{{ draftInvalid }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size: 12px; color: var(--color-accent-700); background: var(--color-accent-100); padding: 10px 14px; border-radius: 16px">{{ draftError }}</div>
+        </sc-if>
+        <button class="btn btn-primary btn-block" onClick="{{ publish }}" disabled="{{ draftInvalid }}" style="min-height: 42px; font-size: 15px">Publish route</button>
+      </div>
+      <div style="position: relative; margin-right: 32px; border-radius: 28px; overflow: hidden; box-shadow: var(--shadow-md)">
+        <div ref="{{ mapRef }}" data-mapmode="draw" style="position: absolute; inset: 0; cursor: crosshair"></div>
+        <sc-if value="{{ noPoints }}" hint-placeholder-val="{{ true }}">
+          <div style="position: absolute; left: 50%; top: 24px; transform: translateX(-50%); z-index: 450; padding: 10px 18px; border-radius: 999px; background: var(--color-bg); box-shadow: var(--shadow-md); font-size: 13px">Click anywhere to place your first waypoint</div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ scTours }}" hint-placeholder-val="{{ false }}">
+    <div style="padding: 26px 32px 56px; animation: ts-rise .35s ease both">
+      <h2 style="margin-bottom: 4px">Upcoming guided tours</h2>
+      <p style="margin: 0 0 22px; opacity: .7; font-size: 14px">{{ tourCountLabel }} you can join, led by verified guides.</p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 18px">
+        <sc-for list="{{ tourList }}" as="t" hint-placeholder-count="4">
+          <div class="card elev-sm" style="padding: 20px 22px; gap: 12px" style-hover="box-shadow: var(--shadow-md)">
+            <div style="display: flex; align-items: center; gap: 10px">
+              <div style="width: 56px; text-align: center; padding: 8px 0; border-radius: 16px; background: var(--color-accent-2-200)">
+                <div style="font-size: 10px; letter-spacing: .08em; text-transform: uppercase">{{ t.mon }}</div>
+                <div style="font-family: var(--font-heading); font-size: 22px; line-height: 1">{{ t.day }}</div>
+              </div>
+              <div>
+                <div class="card-title" style="font-size: 18px">{{ t.routeName }}</div>
+                <div style="font-size: 12px; opacity: .65">{{ t.timeLabel }} · {{ t.meet }}</div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 6px"><span class="{{ t.diffClass }}">{{ t.difficulty }}</span><span class="tag tag-neutral">{{ t.distLabel }}</span><span class="{{ t.seatClass }}">{{ t.seatLabel }}</span></div>
+            <div style="height: 6px; border-radius: 999px; background: var(--color-neutral-300); overflow: hidden">
+              <div style="{{ t.barStyle }}"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px">
+              <div style="width: 24px; height: 24px; border-radius: 999px; background: var(--color-neutral-300); display: grid; place-items: center; font-size: 9px; font-weight: 700">{{ t.gInit }}</div>
+              <span style="font-size: 12px; opacity: .75">{{ t.guide }}</span>
+              <button class="btn btn-primary" onClick="{{ t.open }}" style="margin-left: auto">{{ t.cta }}</button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ scTour }}" hint-placeholder-val="{{ false }}">
+    <div style="display: grid; grid-template-columns: 1fr 400px; min-height: calc(100vh - 63px); animation: ts-rise .35s ease both">
+      <div style="position: relative; margin-left: 32px; border-radius: 28px; overflow: hidden; box-shadow: var(--shadow-md)">
+        <div ref="{{ mapRef }}" data-mapmode="view" style="position: absolute; inset: 0"></div>
+        <button class="btn btn-secondary" onClick="{{ goTours }}" style="position: absolute; left: 16px; top: 16px; z-index: 450; background: var(--color-bg)">← All tours</button>
+      </div>
+      <div style="padding: 8px 32px 48px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; gap: 6px"><span class="{{ tour.diffClass }}">{{ tour.difficulty }}</span><span class="tag tag-neutral">{{ tour.activity }}</span></div>
+        <h2 style="font-size: 32px; margin: 0">{{ tour.routeName }}</h2>
+        <div style="font-family: var(--font-heading); font-size: 18px; color: var(--color-accent-700)">{{ tour.dateLabel }} · {{ tour.timeLabel }}</div>
+        <p style="margin: 0; opacity: .8; font-size: 14px">{{ tour.notes }}</p>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 22px; background: var(--color-surface)">
+          <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="opacity: .6">Meeting point</span><span>{{ tour.meet }}</span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="opacity: .6">Distance</span><span>{{ tour.distLabel }} · ↑ {{ tour.elevLabel }}</span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="opacity: .6">Pace</span><span>{{ tour.pace }}</span></div>
+          <div style="display: flex; justify-content: space-between; font-size: 13px"><span style="opacity: .6">Seats</span><span>{{ tour.seatFull }}</span></div>
+          <div style="height: 6px; border-radius: 999px; background: var(--color-neutral-300); overflow: hidden">
+            <div style="{{ tour.barStyle }}"></div>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 22px; border: 1px solid var(--color-divider)">
+          <div style="width: 40px; height: 40px; border-radius: 999px; background: var(--color-accent-2-300); display: grid; place-items: center; font-size: 12px; font-weight: 700">{{ tour.gInit }}</div>
+          <div>
+            <div style="font-family: var(--font-heading); font-size: 15px">{{ tour.guide }}</div>
+            <div style="font-size: 12px; opacity: .65">Guide · {{ tour.guideStat }}</div>
+          </div>
+        </div>
+
+        <sc-if value="{{ isHiker }}" hint-placeholder-val="{{ true }}">
+          <button class="btn btn-primary btn-block" onClick="{{ askBook }}" disabled="{{ tour.bookDisabled }}" style="min-height: 46px; font-size: 16px">{{ tour.bookCta }}</button>
+        </sc-if>
+        <sc-if value="{{ isGuide }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <h4 style="margin: 6px 0 8px">Roster</h4>
+            <table class="table">
+              <tbody>
+                <sc-for list="{{ tour.roster }}" as="p" hint-placeholder-count="3">
+                  <tr><td>{{ p.name }}</td><td style="opacity: .6">{{ p.when }}</td><td style="text-align: right"><span class="tag tag-accent-2">{{ p.status }}</span></td></tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ scMine }}" hint-placeholder-val="{{ false }}">
+    <div style="padding: 26px 32px 56px; max-width: 1060px; animation: ts-rise .35s ease both">
+      <h2 style="margin-bottom: 4px">{{ mineLabel }}</h2>
+      <p style="margin: 0 0 24px; opacity: .7; font-size: 14px">{{ mineSub }}</p>
+      <table class="table">
+        <thead><tr><th>{{ col1 }}</th><th>Date</th><th>{{ col3 }}</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <sc-for list="{{ mineRows }}" as="m" hint-placeholder-count="4">
+            <tr>
+              <td style="font-weight: 600">{{ m.title }}</td>
+              <td>{{ m.date }}</td>
+              <td>{{ m.mid }}</td>
+              <td><span class="{{ m.statusClass }}">{{ m.status }}</span></td>
+              <td style="text-align: right"><button class="btn btn-ghost" onClick="{{ m.open }}">{{ m.action }}</button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+      </table>
+      <sc-if value="{{ mineEmpty }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top: 20px; padding: 26px; border-radius: 24px; border: 1px dashed var(--color-divider); text-align: center">
+          <p style="opacity: .7; font-size: 14px">Nothing here yet.</p>
+          <button class="btn btn-primary" onClick="{{ goTours }}">Browse tours</button>
+        </div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ scDash }}" hint-placeholder-val="{{ false }}">
+    <div style="padding: 26px 32px 56px; animation: ts-rise .35s ease both">
+      <h2 style="margin-bottom: 4px">Good morning, Ivana</h2>
+      <p style="margin: 0 0 22px; opacity: .7; font-size: 14px">{{ dashSub }}</p>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 32px">
+        <sc-for list="{{ dashStats }}" as="s" hint-placeholder-count="4">
+          <div style="padding: 18px 20px; border-radius: 24px; background: var(--color-surface)">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: .08em; opacity: .55">{{ s.label }}</div>
+            <div style="font-family: var(--font-heading); font-size: 30px; line-height: 1.15">{{ s.value }}</div>
+            <div style="font-size: 12px; color: var(--color-accent-2-700)">{{ s.note }}</div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: 1.35fr 1fr; gap: 34px">
+        <div>
+          <h4 style="margin-bottom: 10px">Your scheduled tours</h4>
+          <table class="table">
+            <thead><tr><th>Route</th><th>Date</th><th>Booked</th><th></th></tr></thead>
+            <tbody>
+              <sc-for list="{{ guideTours }}" as="t" hint-placeholder-count="3">
+                <tr>
+                  <td style="font-weight: 600">{{ t.routeName }}</td>
+                  <td>{{ t.dateLabel }}</td>
+                  <td><span class="{{ t.seatClass }}">{{ t.seatFull }}</span></td>
+                  <td style="text-align: right"><button class="btn btn-ghost" onClick="{{ t.open }}">Manage</button></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h4 style="margin-bottom: 10px">Routes you published</h4>
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <sc-for list="{{ myRoutes }}" as="r" hint-placeholder-count="3">
+              <div onClick="{{ r.open }}" class="card" style="cursor: pointer; flex-direction: row; align-items: center; gap: 12px; padding: 12px 14px" style-hover="box-shadow: var(--shadow-md)">
+                <svg viewBox="0 0 100 44" preserveAspectRatio="none" style="width: 58px; height: 34px; border-radius: 10px; background: var(--color-accent-2-200); flex: none">
+                  <polyline points="{{ r.spark }}" fill="none" stroke="#c67139" stroke-width="3" stroke-linejoin="round"></polyline>
+                </svg>
+                <div style="flex: 1">
+                  <div style="font-family: var(--font-heading); font-size: 15px">{{ r.name }}</div>
+                  <div style="font-size: 11px; opacity: .6">{{ r.distLabel }} · {{ r.tourLabel }}</div>
+                </div>
+                <span class="{{ r.diffClass }}">{{ r.difficulty }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ dlgSchedule }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" style="z-index: 900">
+      <div class="dialog" style="animation: ts-pop .2s ease both; width: min(480px, 100%)">
+        <div class="dialog-title">Schedule a tour</div>
+        <div style="font-size: 13px; opacity: .7">On {{ route.name }} · {{ route.distLabel }} · {{ route.difficulty }}</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px">
+          <div class="field"><label>Date</label><input class="input" type="date" value="2026-09-05"></div>
+          <div class="field"><label>Start time</label><input class="input" type="time" value="08:00"></div>
+          <div class="field"><label>Capacity</label><input class="input" type="number" value="12"></div>
+          <div class="field"><label>Pace</label><input class="input" value="Relaxed"></div>
+        </div>
+        <div class="field"><label>Meeting point</label><input class="input" value="Bliznec parking lot"></div>
+        <div class="field"><label>Notes for hikers</label><textarea class="input" style="border-radius: 20px" placeholder="Bring 1.5 L of water and layers — the ridge is windy."></textarea></div>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" onClick="{{ closeDialog }}">Cancel</button>
+          <button class="btn btn-primary" onClick="{{ confirmSchedule }}">Publish tour</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ dlgBook }}" hint-placeholder-val="{{ false }}">
+    <div class="dialog-backdrop" style="z-index: 900">
+      <div class="dialog" style="animation: ts-pop .2s ease both">
+        <div class="dialog-title">Book one seat?</div>
+        <div class="dialog-body">{{ tour.routeName }} on {{ tour.dateLabel }} at {{ tour.timeLabel }}. Meet at {{ tour.meet }}. You can cancel up to 24 h before.</div>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" onClick="{{ closeDialog }}">Not now</button>
+          <button class="btn btn-primary" onClick="{{ confirmBook }}">Confirm booking</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: fixed; left: 32px; bottom: 28px; z-index: 950; display: flex; align-items: center; gap: 10px; padding: 13px 22px; border-radius: 999px; background: var(--color-accent-2-800); color: var(--color-neutral-100); box-shadow: var(--shadow-lg); animation: ts-rise .25s ease both; font-size: 14px">
+      <span style="width: 8px; height: 8px; border-radius: 999px; background: var(--color-accent-2-300)"></span>{{ toast }}
+    </div>
+  </sc-if>
+</div>
+</sc-if>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;initialRole&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Hiker&quot;,&quot;Guide&quot;],&quot;default&quot;:&quot;Hiker&quot;,&quot;tsType&quot;:&quot;'Hiker' | 'Guide'&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;skipAuth&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Prototype&quot;}}">
+class Component extends DCLogic {
+  ROUTES = [
+    { id: 1, name: 'Medvednica Ridge Loop', difficulty: 'Moderate', activity: 'Hiking', author: 'Ivana Kovač', mine: true,
+      desc: 'A steady climb through beech forest onto the ridge, then an easy return along the old logging road.',
+      coords: [[45.9002,15.9432],[45.9068,15.9508],[45.9121,15.9601],[45.9155,15.9723],[45.9098,15.9805],[45.9012,15.9748],[45.8961,15.9612],[45.9002,15.9432]] },
+    { id: 2, name: 'Sljeme Summit Climb', difficulty: 'Hard', activity: 'Hiking', author: 'Marko Babić', mine: false,
+      desc: 'The direct line to the summit. Relentless for the first hour, rewarded with the whole Zagreb basin below.',
+      coords: [[45.8890,15.9560],[45.8952,15.9612],[45.9008,15.9668],[45.9063,15.9712],[45.9110,15.9769]] },
+    { id: 3, name: 'Sava Riverside Cruise', difficulty: 'Easy', activity: 'Biking', author: 'Ivana Kovač', mine: true,
+      desc: 'Flat, fast and shaded most of the way. A good first ride for anyone new to longer distances.',
+      coords: [[45.7810,15.9200],[45.7795,15.9450],[45.7802,15.9760],[45.7830,16.0100],[45.7868,16.0400]] },
+    { id: 4, name: 'Samobor Hills Traverse', difficulty: 'Moderate', activity: 'Biking', author: 'Petra Novak', mine: false,
+      desc: 'Rolling gravel between vineyards with three short punchy climbs and a bakery stop at the halfway point.',
+      coords: [[45.8020,15.7100],[45.8090,15.7250],[45.8160,15.7420],[45.8215,15.7601],[45.8280,15.7760]] },
+    { id: 5, name: 'Jarun Lake Circuit', difficulty: 'Easy', activity: 'Hiking', author: 'Ivana Kovač', mine: true,
+      desc: 'One lap of the lake on packed gravel. Pushchair-friendly, and never more than ten minutes from a bench.',
+      coords: [[45.7830,15.9130],[45.7845,15.9210],[45.7838,15.9295],[45.7805,15.9270],[45.7802,15.9175],[45.7830,15.9130]] },
+    { id: 6, name: 'Zelenjak Gorge Trail', difficulty: 'Hard', activity: 'Hiking', author: 'Marko Babić', mine: false,
+      desc: 'Exposed scrambling above the Sutla river. Do not attempt in the wet — the limestone turns to glass.',
+      coords: [[46.0800,15.7300],[46.0870,15.7410],[46.0940,15.7520],[46.1010,15.7600]] }
+  ];
+
+  TOURS = [
+    { id: 1, routeId: 1, date: '2026-08-22', time: '08:00 – 12:30', cap: 12, booked: 9, guide: 'Ivana Kovač', mine: true, meet: 'Bliznec parking lot', pace: 'Relaxed, 3.5 km/h', notes: 'Layered clothing and 1.5 L of water. We break for 20 minutes at the ridge shelter.' },
+    { id: 2, routeId: 2, date: '2026-08-29', time: '07:30 – 11:20', cap: 8, booked: 8, guide: 'Marko Babić', mine: false, meet: 'Gračanski dolac tram stop', pace: 'Brisk, 4.5 km/h', notes: 'Fitness required — 880 m of gain with no easy bail-out. Poles strongly recommended.' },
+    { id: 3, routeId: 3, date: '2026-09-05', time: '09:00 – 10:45', cap: 20, booked: 6, guide: 'Ivana Kovač', mine: true, meet: 'Jarun bridge, east side', pace: 'Social, 16 km/h', notes: 'Any bike in working order is fine. Helmets required, spare tubes provided.' },
+    { id: 4, routeId: 4, date: '2026-09-12', time: '08:30 – 13:00', cap: 10, booked: 4, guide: 'Petra Novak', mine: false, meet: 'Samobor main square', pace: 'Moderate, 14 km/h', notes: 'Gravel tyres or a hardtail. Two cafés on route, bring cash for the bakery.' },
+    { id: 5, routeId: 1, date: '2026-09-19', time: '09:00 – 13:30', cap: 12, booked: 2, guide: 'Ivana Kovač', mine: true, meet: 'Bliznec parking lot', pace: 'Relaxed, 3.5 km/h', notes: 'Autumn colours edition — slower pace, more photo stops.' }
+  ];
+
+  state = {
+    authed: false, mode: 'login', role: 'HIKER', screen: 'discover',
+    routeId: 1, tourId: 1, filter: 'All', dialog: null, toast: null,
+    booked: [1], extraBooked: {},
+    draft: { name: '', difficulty: 'Moderate', activity: 'Hiking', desc: '', pts: [] }
+  };
+
+  componentDidMount() {
+    if (this.props.initialRole) this.setState({ role: this.props.initialRole === 'Guide' ? 'GUIDE' : 'HIKER' });
+    if (this.props.skipAuth) this.setState({ authed: true });
+  }
+  componentDidUpdate() { this.paint(); }
+  componentWillUnmount() {
+    clearTimeout(this._t);
+    (this._maps || []).forEach(m => { try { m.remove(); } catch (err) {} });
+    this._maps = [];
+    this.kill();
+  }
+
+  /* ---------- geo helpers ---------- */
+  seg(a, b) {
+    const R = 6371, r = Math.PI / 180;
+    const dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  dist(c) { let d = 0; for (let i = 1; i < c.length; i++) d += this.seg(c[i - 1], c[i]); return d; }
+  stats(c) {
+    const d = this.dist(c);
+    const elev = Math.round((d * 46 + c.length * 12) / 10) * 10;
+    const hrs = d / (this.activityOf(c) === 'bike' ? 14 : 4.1) + elev / 620;
+    let h = Math.floor(hrs), m = Math.round((hrs - h) * 60 / 5) * 5;
+    if (m === 60) { h += 1; m = 0; }
+    const durLabel = h ? (m ? h + ' h ' + m + ' min' : h + ' h') : m + ' min';
+    return { distLabel: d.toFixed(1) + ' km', elevLabel: elev + ' m', durLabel, dist: d, elev };
+  }
+  activityOf() { return 'hike'; }
+  spark(c) {
+    if (!c.length) return '';
+    const la = c.map(p => p[0]), lo = c.map(p => p[1]);
+    const y0 = Math.min(...la), y1 = Math.max(...la), x0 = Math.min(...lo), x1 = Math.max(...lo);
+    const sx = x1 - x0 || 1, sy = y1 - y0 || 1;
+    return c.map(p => (14 + ((p[1] - x0) / sx) * 72).toFixed(1) + ',' + (36 - ((p[0] - y0) / sy) * 28).toFixed(1)).join(' ');
+  }
+
+  /* ---------- map ---------- */
+  /* One Leaflet map per container node, stashed on the node itself: the ref can
+     fire more than once for the same element, and creating a second map on a
+     live container leaves orphan layers that poison every renderer update. */
+  mapRef = (el) => {
+    if (!el) return;
+    this._el = el;
+    this._mode = el.getAttribute('data-mapmode');
+    if (el.__tsMap) { this.adopt(el); return; }
+    const boot = () => {
+      if (!window.L) { this._boot = setTimeout(boot, 120); return; }
+      if (!el.isConnected || el.__tsMap) { if (el.__tsMap) this.adopt(el); return; }
+      const mode = el.getAttribute('data-mapmode');
+      const map = window.L.map(el, { preferCanvas: true, zoomControl: mode !== 'hero', attributionControl: true, scrollWheelZoom: mode !== 'hero', dragging: true }).setView([45.9, 15.96], 12);
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '© OpenStreetMap' }).addTo(map);
+      if (mode !== 'hero') map.zoomControl.setPosition('bottomright');
+      if (mode === 'draw') map.on('click', (e) => this.addPoint(e.latlng.lat, e.latlng.lng));
+      el.__tsMap = map;
+      el.__tsLayer = window.L.layerGroup().addTo(map);
+      (this._maps = this._maps || []).push(map);
+      this.adopt(el);
+      setTimeout(() => { if (el.__tsMap === map && el.isConnected) { try { map.invalidateSize(); } catch (err) {} this.adopt(el); } }, 60);
+    };
+    boot();
+  };
+  adopt(el) {
+    this._maps = (this._maps || []).filter(m => {
+      if (m === el.__tsMap || (m._container && m._container.isConnected)) return true;
+      try { m.remove(); } catch (err) {}
+      return false;
+    });
+    this._map = el.__tsMap; this._layer = el.__tsLayer; this._key = null;
+    try { this.paint(true); } catch (err) { console.warn('map paint failed', err); }
+  }
+  kill() {
+    clearTimeout(this._boot);
+    this._map = null; this._layer = null; this._el = null; this._key = null;
+  }
+  paint(fit) {
+    if (!this._map || !this._layer || !window.L || !this._el || !this._el.isConnected) return;
+    const L = window.L, mode = this._mode;
+    const pts = mode === 'draw' ? this.state.draft.pts
+      : mode === 'hero' ? this.ROUTES[0].coords
+      : (this.state.screen === 'tour' ? this.currentTour().coords : this.currentRoute().coords);
+    const key = mode + '|' + JSON.stringify(pts);
+    const painted = this._layer.getLayers().length > 0;
+    if (key === this._key && !fit && painted) return;
+    const changedShape = key !== this._key;
+    this._layer.clearLayers();
+    if (!pts.length) { this._key = key; return; }
+    L.polyline(pts, { color: '#8c491a', weight: 7, opacity: .25, lineJoin: 'round' }).addTo(this._layer);
+    L.polyline(pts, { color: '#c67139', weight: 4, dashArray: mode === 'draw' ? '1 0' : null, lineJoin: 'round' }).addTo(this._layer);
+    if (mode === 'draw') {
+      pts.forEach((p, i) => {
+        const m = L.marker(p, { draggable: true, icon: L.divIcon({ className: '', html: '<div class="ts-wp">' + (i + 1) + '</div>', iconSize: [20, 20], iconAnchor: [10, 10] }) }).addTo(this._layer);
+        m.on('drag', (e) => { const ll = e.target.getLatLng(); const np = this.state.draft.pts.slice(); np[i] = [ll.lat, ll.lng]; this._key = null; this.setState(s => ({ draft: { ...s.draft, pts: np } })); });
+      });
+    } else {
+      [pts[0], pts[pts.length - 1]].forEach((p, i) => {
+        L.circleMarker(p, { radius: 7, color: '#f5ead8', weight: 3, fillColor: i ? '#56633f' : '#c67139', fillOpacity: 1 }).addTo(this._layer);
+      });
+    }
+    if ((fit || changedShape) && mode !== 'draw') this._map.fitBounds(L.latLngBounds(pts).pad(0.25), { animate: false });
+    this._key = key;
+  }
+
+  /* ---------- data lookups ---------- */
+  currentRoute() { return this.ROUTES.find(r => r.id === this.state.routeId) || this.ROUTES[0]; }
+  currentTour() {
+    const t = this.TOURS.find(x => x.id === this.state.tourId) || this.TOURS[0];
+    return { ...t, coords: (this.ROUTES.find(r => r.id === t.routeId) || this.ROUTES[0]).coords };
+  }
+  diffClass(d) { return 'tag ' + (d === 'Easy' ? 'tag-accent-2' : d === 'Hard' ? 'tag-accent' : 'tag-neutral'); }
+  booked(id) { return this.state.booked.indexOf(id) >= 0; }
+  seatsOf(t) { return t.booked + (this.state.extraBooked[t.id] || 0); }
+  dateFmt(iso) {
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'long' });
+  }
+
+  decorateRoute(r) {
+    const s = this.stats(r.coords);
+    const tours = this.TOURS.filter(t => t.routeId === r.id).length;
+    return { ...r, ...s, spark: this.spark(r.coords), diffClass: this.diffClass(r.difficulty),
+      wpCount: r.coords.length, initials: r.author.split(' ').map(w => w[0]).join(''),
+      tourLabel: tours ? tours + (tours > 1 ? ' tours' : ' tour') + ' scheduled' : 'no tours yet',
+      open: () => this.go('route', { routeId: r.id }) };
+  }
+  decorateTour(t) {
+    const route = this.ROUTES.find(r => r.id === t.routeId) || this.ROUTES[0];
+    const s = this.stats(route.coords);
+    const seats = this.seatsOf(t), left = t.cap - seats, mine = this.booked(t.id);
+    const d = new Date(t.date + 'T00:00:00');
+    const pct = Math.round(seats / t.cap * 100);
+    return { ...t, ...s, routeName: route.name, difficulty: route.difficulty, activity: route.activity,
+      diffClass: this.diffClass(route.difficulty),
+      dateLabel: this.dateFmt(t.date), timeLabel: t.time,
+      mon: d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase(), day: d.getDate(),
+      seatLabel: mine ? 'You are in' : left > 0 ? left + ' seats left' : 'Full',
+      seatFull: seats + ' / ' + t.cap + ' booked',
+      seatClass: 'tag ' + (mine ? 'tag-accent-2' : left === 0 ? 'tag-accent' : left <= 3 ? 'tag-outline' : 'tag-neutral'),
+      barStyle: 'height: 100%; width: ' + pct + '%; border-radius: 999px; background: ' + (left === 0 ? 'var(--color-accent)' : 'var(--color-accent-2)'),
+      gInit: t.guide.split(' ').map(w => w[0]).join(''),
+      guideStat: t.guide === 'Ivana Kovač' ? '14 tours led · 4.9 ★' : '31 tours led · 4.8 ★',
+      cta: mine ? 'Booked' : left > 0 ? 'Book a seat' : 'Join waitlist',
+      bookCta: mine ? '✓ Seat booked' : left > 0 ? 'Book a seat' : 'Tour is full',
+      bookDisabled: mine || left === 0,
+      roster: ['Luka Horvat', 'Ana Perić', 'Tomislav Rukavina', 'Maja Šimić', 'Filip Barišić', 'Nina Vuković', 'Dario Klarić', 'Sara Jurić', 'You']
+        .slice(0, Math.min(seats, 9)).map((n, i) => ({ name: n, when: 'booked ' + (i + 2) + ' days ago', status: i === 0 ? 'Paid' : 'Confirmed' })),
+      open: () => this.go('tour', { tourId: t.id }) };
+  }
+
+  /* ---------- actions ---------- */
+  go(screen, extra) { this._key = null; this.setState({ screen, dialog: null, ...(extra || {}) }); }
+  flash(msg) { clearTimeout(this._t); this.setState({ toast: msg }); this._t = setTimeout(() => this.setState({ toast: null }), 3200); }
+  addPoint(lat, lng) {
+    this._key = null;
+    this.setState(s => ({ draft: { ...s.draft, pts: s.draft.pts.concat([[lat, lng]]) } }));
+  }
+
+  renderVals() {
+    const s = this.state, isGuide = s.role === 'GUIDE';
+    const route = this.decorateRoute(this.currentRoute());
+    const rawTour = this.currentTour();
+    const tour = { ...this.decorateTour(rawTour), notes: rawTour.notes };
+    const routes = this.ROUTES.map(r => this.decorateRoute(r));
+    const tours = this.TOURS.map(t => this.decorateTour(t));
+    const dr = s.draft, dStats = this.stats(dr.pts);
+    const draftInvalid = dr.pts.length < 2 || dr.name.trim().length < 3;
+
+    const mineRows = isGuide
+      ? tours.filter(t => t.mine).map(t => ({ title: t.routeName, date: t.dateLabel, mid: t.seatFull, status: t.cap - this.seatsOf(t) === 0 ? 'Full' : 'Open',
+          statusClass: 'tag ' + (t.cap - this.seatsOf(t) === 0 ? 'tag-accent' : 'tag-accent-2'), action: 'Manage', open: t.open }))
+      : tours.filter(t => this.booked(t.id)).map(t => ({ title: t.routeName, date: t.dateLabel, mid: t.guide, status: 'Confirmed',
+          statusClass: 'tag tag-accent-2', action: 'View tour', open: t.open }));
+
+    const cardBase = 'padding: 12px 14px; border-radius: 20px; cursor: pointer; display: flex; flex-direction: column; gap: 4px; border: 1.5px solid ';
+
+    return {
+      isAuth: !s.authed, isApp: s.authed,
+      modeLogin: s.mode === 'login', modeReg: s.mode === 'register',
+      authCta: s.mode === 'login' ? 'Log in' : 'Create account',
+      toLogin: () => this.setState({ mode: 'login' }), toRegister: () => this.setState({ mode: 'register' }),
+      pickGuide: () => this.setState({ role: 'GUIDE' }), pickHiker: () => this.setState({ role: 'HIKER' }),
+      guideCardStyle: cardBase + (isGuide ? 'var(--color-accent); background: var(--color-accent-100)' : 'var(--color-divider)'),
+      hikerCardStyle: cardBase + (!isGuide ? 'var(--color-accent); background: var(--color-accent-100)' : 'var(--color-divider)'),
+      signIn: () => { this.kill(); this.setState({ authed: true, screen: isGuide ? 'dash' : 'discover' }); this.flash(isGuide ? 'Signed in as a guide' : 'Signed in as a hiker'); },
+      signOut: () => { this.kill(); this.setState({ authed: false, screen: 'discover' }); },
+
+      isGuide, isHiker: !isGuide,
+      setGuide: () => this.setState({ role: 'GUIDE', screen: s.screen === 'mine' ? 'mine' : s.screen }),
+      setHiker: () => this.setState({ role: 'HIKER', screen: s.screen === 'dash' ? 'discover' : s.screen }),
+      mineLabel: isGuide ? 'My tours' : 'My bookings',
+      mineSub: isGuide ? 'Tours you scheduled, and how they are filling up.' : 'Seats you hold on upcoming guided tours.',
+      col1: isGuide ? 'Route' : 'Tour', col3: isGuide ? 'Seats' : 'Guide',
+      mineRows, mineEmpty: mineRows.length === 0,
+
+      scDiscover: s.screen === 'discover', scRoute: s.screen === 'route', scDraw: s.screen === 'draw',
+      scTours: s.screen === 'tours', scTour: s.screen === 'tour', scMine: s.screen === 'mine', scDash: s.screen === 'dash',
+      curDiscover: s.screen === 'discover' || s.screen === 'route' ? 'page' : null,
+      curTours: s.screen === 'tours' || s.screen === 'tour' ? 'page' : null,
+      curMine: s.screen === 'mine' ? 'page' : null, curDash: s.screen === 'dash' ? 'page' : null,
+      goDiscover: () => this.go('discover'), goTours: () => this.go('tours'), goMine: () => this.go('mine'),
+      goDash: () => this.go('dash'), goDraw: () => this.go('draw'),
+
+      mapRef: this.mapRef,
+      visibleRoutes: s.filter === 'All' ? routes : routes.filter(r => r.difficulty === s.filter),
+      routeCountLabel: routes.length + ' community routes',
+      fAll: s.filter === 'All', fEasy: s.filter === 'Easy', fMod: s.filter === 'Moderate', fHard: s.filter === 'Hard',
+      filtAll: () => this.setState({ filter: 'All' }), filtEasy: () => this.setState({ filter: 'Easy' }),
+      filtMod: () => this.setState({ filter: 'Moderate' }), filtHard: () => this.setState({ filter: 'Hard' }),
+
+      route, routeTours: tours.filter(t => t.routeId === route.id), noRouteTours: tours.filter(t => t.routeId === route.id).length === 0,
+      tour, tourList: tours, tourCountLabel: tours.length + ' tours',
+      guideTours: tours.filter(t => t.mine), myRoutes: routes.filter(r => r.mine),
+      dashSub: 'You have ' + tours.filter(t => t.mine).length + ' tours on the calendar and ' + routes.filter(r => r.mine).length + ' published routes.',
+      dashStats: [
+        { label: 'Tours scheduled', value: String(tours.filter(t => t.mine).length), note: 'next in 9 days' },
+        { label: 'Seats booked', value: String(tours.filter(t => t.mine).reduce((a, t) => a + this.seatsOf(t), 0)), note: 'across all tours' },
+        { label: 'Routes published', value: String(routes.filter(r => r.mine).length), note: '1 awaiting photos' },
+        { label: 'Rating', value: '4.9', note: 'from 38 hikers' }
+      ],
+
+      draftName: dr.name, draftDesc: dr.desc,
+      draftDist: dr.pts.length > 1 ? dStats.distLabel : '—', draftElev: dr.pts.length > 1 ? dStats.elevLabel : '—',
+      draftDur: dr.pts.length > 1 ? dStats.durLabel : '—', draftCount: String(dr.pts.length),
+      noPoints: dr.pts.length === 0,
+      dEasy: dr.difficulty === 'Easy', dMod: dr.difficulty === 'Moderate', dHard: dr.difficulty === 'Hard',
+      aHike: dr.activity === 'Hiking', aBike: dr.activity === 'Biking',
+      setEasy: () => this.setState({ draft: { ...dr, difficulty: 'Easy' } }),
+      setMod: () => this.setState({ draft: { ...dr, difficulty: 'Moderate' } }),
+      setHard: () => this.setState({ draft: { ...dr, difficulty: 'Hard' } }),
+      setHike: () => this.setState({ draft: { ...dr, activity: 'Hiking' } }),
+      setBike: () => this.setState({ draft: { ...dr, activity: 'Biking' } }),
+      onName: (e) => this.setState({ draft: { ...dr, name: e.target.value } }),
+      onDesc: (e) => this.setState({ draft: { ...dr, desc: e.target.value } }),
+      undoPoint: () => { this._key = null; this.setState({ draft: { ...dr, pts: dr.pts.slice(0, -1) } }); },
+      clearPoints: () => { this._key = null; this.setState({ draft: { ...dr, pts: [] } }); },
+      draftInvalid,
+      draftError: dr.pts.length < 2 ? 'Place at least two waypoints on the map.' : 'Give the route a name of 3 characters or more.',
+      publish: () => {
+        const id = Math.max(...this.ROUTES.map(r => r.id)) + 1;
+        this.ROUTES = this.ROUTES.concat([{ id, name: dr.name, difficulty: dr.difficulty, activity: dr.activity,
+          author: 'Ivana Kovač', mine: true, desc: dr.desc || 'No description yet.', coords: dr.pts }]);
+        this.kill();
+        this.setState({ screen: 'route', routeId: id, draft: { name: '', difficulty: 'Moderate', activity: 'Hiking', desc: '', pts: [] } });
+        this.flash('Route published — ' + dr.name);
+      },
+
+      dlgSchedule: s.dialog === 'schedule', dlgBook: s.dialog === 'book',
+      openSchedule: () => this.setState({ dialog: 'schedule' }),
+      askBook: () => this.setState({ dialog: 'book' }),
+      closeDialog: () => this.setState({ dialog: null }),
+      confirmSchedule: () => {
+        const id = Math.max(...this.TOURS.map(t => t.id)) + 1;
+        this.TOURS = this.TOURS.concat([{ id, routeId: route.id, date: '2026-09-05', time: '08:00 – 12:30', cap: 12, booked: 0,
+          guide: 'Ivana Kovač', mine: true, meet: 'Bliznec parking lot', pace: 'Relaxed, 3.5 km/h', notes: 'Bring 1.5 L of water and layers — the ridge is windy.' }]);
+        this.setState({ dialog: null });
+        this.flash('Tour scheduled for Sat 5 September');
+      },
+      confirmBook: () => {
+        this.setState(st => ({ dialog: null, booked: st.booked.concat([st.tourId]),
+          extraBooked: { ...st.extraBooked, [st.tourId]: (st.extraBooked[st.tourId] || 0) + 1 } }));
+        this.flash('Seat booked — see it under My bookings');
+      },
+      heroName: routes[0].name, heroMeta: routes[0].difficulty + ' · ' + routes[0].distLabel,
+      toast: s.toast, hasToast: !!s.toast
+    };
+  }
+}
+
+</script>
+</body>
+</html>
