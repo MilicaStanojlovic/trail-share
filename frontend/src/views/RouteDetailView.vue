@@ -155,8 +155,11 @@ watch(
         </div>
       </div>
 
+      <!-- Not while the tour fetch is still in flight: it runs after the route
+           fetch resolves, so an unguarded empty state claims a route has no
+           tours for the length of a request, then contradicts itself. -->
       <EmptyState
-        v-else
+        v-else-if="!toursStore.loading"
         compact
         message="No tours scheduled on this route yet."
       />
