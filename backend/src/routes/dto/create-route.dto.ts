@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsEnum,
@@ -69,6 +70,9 @@ export class CreateRouteDto {
 
   @IsArray()
   @ArrayMinSize(2)
+  // An explicit upper bound, so the contract states the limit rather than
+  // leaving it to Express's body-size default.
+  @ArrayMaxSize(2000)
   @IsLatLngPair({ each: true })
   waypoints: [number, number][];
 }

@@ -82,6 +82,15 @@ function paint(fit: boolean): void {
         }),
       }).addTo(wpGroup)
 
+      // Leaflet markers register no click listener of their own, so a click
+      // that lands on a pin falls through to the map handler and appends a
+      // duplicate point on top of the existing one. The map looks unchanged
+      // while the waypoint count and the synthetic elevation both climb, so
+      // the user has no way to see what went wrong. The design prototype has
+      // the same hole; we close it.
+      marker.on('click', (e: L.LeafletMouseEvent) => {
+        L.DomEvent.stopPropagation(e)
+      })
       marker.on('dragstart', () => {
         dragging = true
       })
