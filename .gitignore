@@ -9,3 +9,6 @@ npm-debug.log*
 .vite/
 .idea/
 .vscode/
+
+# Claude Code scratch worktrees
+.claude/worktrees/

@@ -16,3 +16,26 @@ export interface AuthResponse {
   token: string
   user: AuthUser
 }
+
+export interface RouteAuthor {
+  id: string
+  displayName: string
+}
+
+export interface TrailRoute {
+  id: string
+  name: string
+  description: string
+  difficulty: Difficulty
+  activity: Activity
+  author: RouteAuthor
+  waypoints: [number, number][]
+  waypointCount: number
+  tourCount: number
+  distanceKm: number
+  distanceLabel: string
+  elevationM: number
+  elevationLabel: string
+  durationLabel: string
+  createdAt: string
+}

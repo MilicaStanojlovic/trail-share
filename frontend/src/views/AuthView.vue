@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, watch, type Ref } from 'vue'
+import { computed, onMounted, ref, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppButton from '@/components/AppButton.vue'
 import BrandMark from '@/components/BrandMark.vue'
 import FormField from '@/components/FormField.vue'
-import RouteSparkline from '@/components/RouteSparkline.vue'
 import SegControl from '@/components/SegControl.vue'
+import Tag from '@/components/Tag.vue'
+import TrailMap from '@/components/TrailMap.vue'
 import { ApiError } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
+import { useRoutesStore } from '@/stores/routes'
 import { useToastStore } from '@/stores/toast'
 import type { Role } from '@/types/domain'
 
@@ -22,8 +24,18 @@ const error = ref<string | null>(null)
 const isRegister = computed(() => mode.value === 'register')
 
 const auth = useAuthStore()
+const routes = useRoutesStore()
 const toast = useToastStore()
 const router = useRouter()
+
+const featured = computed(() => routes.list[0] ?? null)
+
+// The routes endpoint is public so the hero renders while signed out. If the
+// backend is down the right column simply stays surface-coloured while the
+// sign-in form keeps working: never surface an error and never block the form.
+onMounted(() => {
+  routes.fetchRoutes().catch(() => {})
+})
 
 watch([mode, displayName, email, password, role], () => {
   error.value = null
@@ -69,17 +81,6 @@ async function onSubmit() {
     pending.value = false
   }
 }
-
-const heroCoords: [number, number][] = [
-  [45.9002, 15.9432],
-  [45.9068, 15.9508],
-  [45.9121, 15.9601],
-  [45.9155, 15.9723],
-  [45.9098, 15.9805],
-  [45.9012, 15.9748],
-  [45.8961, 15.9612],
-  [45.9002, 15.9432],
-]
 
 const modeOptions = [
   { label: 'Log in', value: 'login' },
@@ -219,10 +220,33 @@ const modeOptions = [
     </div>
 
     <div style="position: relative; overflow: hidden; background: var(--color-surface)">
-      <!-- The hero Leaflet map and FEATURED card are a slice-3 follow-up; this is a decorative placeholder. -->
-      <div style="position: absolute; inset: 0; opacity: 0.45" aria-hidden="true">
-        <RouteSparkline :coords="heroCoords" :stroke-width="1.6" />
-      </div>
+      <template v-if="featured">
+        <div style="position: absolute; inset: 0">
+          <TrailMap mode="hero" :coords="featured.waypoints" />
+        </div>
+
+        <div
+          style="
+            position: absolute;
+            left: 28px;
+            bottom: 28px;
+            z-index: 450;
+            padding: 14px 18px;
+            border-radius: 28px;
+            background: var(--color-bg);
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            gap: 22px;
+            align-items: center;
+          "
+        >
+          <div>
+            <div style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--color-accent)">Featured</div>
+            <div style="font-family: var(--font-heading); font-size: 17px">{{ featured.name }}</div>
+          </div>
+          <Tag>{{ featured.difficulty }} · {{ featured.distanceLabel }}</Tag>
+        </div>
+      </template>
     </div>
   </div>
 </template>
