@@ -14,6 +14,8 @@ import {
 import { computeEndTime, timeLabel } from './tour-time';
 import { CreateTourDto } from './dto/create-tour.dto';
 import { TourDto } from './dto/tour-dto';
+import { Booking } from '../bookings/booking.entity';
+import type { AuthUser } from '../auth/auth-user';
 
 type QueryBuilderMock = {
   leftJoinAndSelect: jest.Mock<QueryBuilderMock, [string, string]>;
@@ -79,6 +81,44 @@ const routesRepositoryMock: RoutesRepositoryMock = {
     .mockResolvedValue(true) as unknown as RoutesRepositoryMock['exists'],
 };
 
+type BookingsQueryBuilderMock = {
+  leftJoin: jest.Mock<BookingsQueryBuilderMock, [string, string]>;
+  addSelect: jest.Mock<BookingsQueryBuilderMock, [string | string[], string?]>;
+  where: jest.Mock<
+    BookingsQueryBuilderMock,
+    [string, Record<string, unknown>?]
+  >;
+  orderBy: jest.Mock<BookingsQueryBuilderMock, [string, string]>;
+  getMany: jest.Mock<Promise<Booking[]>, []>;
+};
+
+const bookingsQueryBuilderMock: BookingsQueryBuilderMock = {
+  leftJoin: jest
+    .fn<BookingsQueryBuilderMock, [string, string]>()
+    .mockReturnThis(),
+  addSelect: jest
+    .fn<BookingsQueryBuilderMock, [string | string[], string?]>()
+    .mockReturnThis(),
+  where: jest
+    .fn<BookingsQueryBuilderMock, [string, Record<string, unknown>?]>()
+    .mockReturnThis(),
+  orderBy: jest
+    .fn<BookingsQueryBuilderMock, [string, string]>()
+    .mockReturnThis(),
+  getMany: jest.fn<Promise<Booking[]>, []>(),
+};
+
+type BookingsRepositoryMock = jest.Mocked<
+  Pick<Repository<Booking>, 'find' | 'createQueryBuilder'>
+>;
+
+const bookingsRepositoryMock: BookingsRepositoryMock = {
+  find: jest.fn(),
+  createQueryBuilder: jest.fn(
+    () => bookingsQueryBuilderMock,
+  ) as unknown as BookingsRepositoryMock['createQueryBuilder'],
+};
+
 describe('ToursService', () => {
   let service: ToursService;
 
@@ -89,6 +129,25 @@ describe('ToursService', () => {
     passwordHash: 'hashed-secret',
     role: UserRole.GUIDE,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
+  };
+
+  const hikerViewer: AuthUser = {
+    id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    displayName: 'Luka Horvat',
+    email: 'luka@trailshare.hr',
+    role: UserRole.HIKER,
+  };
+
+  const guideViewer: AuthUser = {
+    id: guide.id,
+    displayName: guide.displayName,
+    email: guide.email,
+    role: UserRole.GUIDE,
+  };
+
+  const otherGuideViewer: AuthUser = {
+    ...guideViewer,
+    id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
   };
 
   const waypoints: [number, number][] = [
@@ -133,6 +192,8 @@ describe('ToursService', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     queryBuilderMock.getRawMany.mockResolvedValue([]);
+    bookingsRepositoryMock.find.mockResolvedValue([]);
+    bookingsQueryBuilderMock.getMany.mockResolvedValue([]);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -144,6 +205,10 @@ describe('ToursService', () => {
         {
           provide: getRepositoryToken(Route),
           useValue: routesRepositoryMock,
+        },
+        {
+          provide: getRepositoryToken(Booking),
+          useValue: bookingsRepositoryMock,
         },
       ],
     }).compile();
@@ -329,6 +394,141 @@ describe('ToursService', () => {
       expect(result[0].guide.toursLed).toBe(5);
       expect(result[1].guide.toursLed).toBe(2);
       expect(result[2].guide.toursLed).toBe(5);
+    });
+  });
+
+  describe('viewer-aware decoration', () => {
+    it('findUpcoming marks only the tours booked by the viewer', async () => {
+      const guideB: User = {
+        ...guide,
+        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        displayName: 'Marko Horvat',
+      };
+
+      const routeB: Route = {
+        ...route,
+        id: '44444444-4444-4444-8444-444444444444',
+      };
+
+      const tourA: Tour = {
+        ...tour,
+        id: 'tour-a',
+        guide,
+        guideId: guide.id,
+      };
+      const tourB: Tour = {
+        ...tour,
+        id: 'tour-b',
+        guide: guideB,
+        guideId: guideB.id,
+        route: routeB,
+        routeId: routeB.id,
+      };
+      const tourC: Tour = {
+        ...tour,
+        id: 'tour-c',
+        guide,
+        guideId: guide.id,
+      };
+
+      queryBuilderMock.getMany.mockResolvedValue([tourA, tourB, tourC]);
+      queryBuilderMock.getRawMany.mockResolvedValue([
+        { guideId: guide.id, count: '5' },
+        { guideId: guideB.id, count: '2' },
+      ]);
+      bookingsRepositoryMock.find.mockResolvedValue([
+        { tourId: 'tour-b' },
+      ] as unknown as Booking[]);
+
+      const result = await service.findUpcoming(hikerViewer);
+
+      expect(bookingsRepositoryMock.find).toHaveBeenCalledTimes(1);
+      expect(result[0].isBookedByMe).toBe(false);
+      expect(result[1].isBookedByMe).toBe(true);
+      expect(result[2].isBookedByMe).toBe(false);
+    });
+
+    it('findUpcoming with no viewer never queries bookings and reports all unbooked', async () => {
+      const tourA: Tour = { ...tour, id: 'tour-a' };
+      const tourB: Tour = { ...tour, id: 'tour-b' };
+      const tourC: Tour = { ...tour, id: 'tour-c' };
+
+      queryBuilderMock.getMany.mockResolvedValue([tourA, tourB, tourC]);
+      queryBuilderMock.getRawMany.mockResolvedValue([
+        { guideId: guide.id, count: '5' },
+      ]);
+
+      const result = await service.findUpcoming();
+
+      expect(bookingsRepositoryMock.find).not.toHaveBeenCalled();
+      expect(result.every((dto) => dto.isBookedByMe === false)).toBe(true);
+    });
+
+    it('findById includes a roster ordered by booking date for the owning guide', async () => {
+      queryBuilderMock.getOne.mockResolvedValue(tour);
+      queryBuilderMock.getRawMany.mockResolvedValue([
+        { guideId: guide.id, count: '3' },
+      ]);
+      bookingsQueryBuilderMock.getMany.mockResolvedValue([
+        {
+          hiker: {
+            id: 'h1',
+            displayName: 'Luka Horvat',
+          },
+          createdAt: new Date('2026-08-08T09:00:00.000Z'),
+          status: 'PAID',
+        },
+        {
+          hiker: {
+            id: 'h2',
+            displayName: 'Ana Peric',
+          },
+          createdAt: new Date('2026-08-09T09:00:00.000Z'),
+          status: 'CONFIRMED',
+        },
+      ] as unknown as Booking[]);
+
+      const dto = await service.findById(tour.id, guideViewer);
+
+      expect(bookingsQueryBuilderMock.orderBy).toHaveBeenCalledWith(
+        'booking.createdAt',
+        'ASC',
+      );
+      expect(dto.roster).toEqual([
+        {
+          name: 'Luka Horvat',
+          bookedAt: '2026-08-08T09:00:00.000Z',
+          status: 'PAID',
+        },
+        {
+          name: 'Ana Peric',
+          bookedAt: '2026-08-09T09:00:00.000Z',
+          status: 'CONFIRMED',
+        },
+      ]);
+    });
+
+    it('findById hides the roster from a hiker viewer', async () => {
+      queryBuilderMock.getOne.mockResolvedValue(tour);
+      queryBuilderMock.getRawMany.mockResolvedValue([
+        { guideId: guide.id, count: '3' },
+      ]);
+
+      const dto = await service.findById(tour.id, hikerViewer);
+
+      expect(bookingsRepositoryMock.createQueryBuilder).not.toHaveBeenCalled();
+      expect('roster' in dto).toBe(false);
+    });
+
+    it('findById hides the roster from a guide who does not own the tour', async () => {
+      queryBuilderMock.getOne.mockResolvedValue(tour);
+      queryBuilderMock.getRawMany.mockResolvedValue([
+        { guideId: guide.id, count: '3' },
+      ]);
+
+      const dto = await service.findById(tour.id, otherGuideViewer);
+
+      expect('roster' in dto).toBe(false);
     });
   });
 });

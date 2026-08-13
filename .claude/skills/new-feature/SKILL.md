@@ -15,7 +15,6 @@ Check these before starting; fix or report anything missing.
 |---|---|
 | PostgreSQL running | `Get-Service postgresql-x64-16` → `Running` |
 | `trailshare` database exists | `psql -U postgres -c "\l"` (or the backend starts without a DB error) |
-| opencode CLI + Kimi K2 | `opencode run -m opencode-go/kimi-k2.7-code "say PONG"` |
 | Design access | `DesignSync` `list_files` on project `b5b8b913-1ab6-424e-94b6-b0841637a0d1` |
 | Docker Desktop | Only needed for `npm run test:e2e` — the tester starts it on demand |
 
@@ -43,15 +42,13 @@ For each unchecked task **in order**, launch a fresh **implementor** agent with:
 - the exact task ID (e.g. `T4`),
 - a one-paragraph summary of what previous tasks actually produced (the implementor has no memory of earlier invocations).
 
-Run these **sequentially by default** — tasks share one working tree, and concurrent agents editing the same files clobber each other. Buffered writes from a killed `opencode` can also land *after* an agent has given up and written the file itself, so overlapping runs produce genuinely confusing diffs.
+Run these **sequentially by default** — tasks share one working tree, and concurrent agents editing the same files clobber each other.
 
 **The one safe parallelism: the backend and frontend halves of a slice.** Once the plan's API contract is written, `backend/` tasks and `frontend/` tasks touch disjoint directories, and the frontend is built against the contract rather than against the backend's code. Running the two halves at once roughly halves this phase. Tell each agent explicitly which directory it owns and that a counterpart is live. The only shared file is the plan itself — instruct both to tick **only their own** boxes as single-line edits.
 
 Do not reach for `isolation: "worktree"` to get this. Agent worktrees are branched from `origin/<default-branch>`, not from the feature branch, so the agent lands in a tree with none of the slices you have already merged and correctly refuses to work. Just run both agents in the main checkout with disjoint directory ownership.
 
-**If opencode hangs at zero output, the cause is almost always a missing `--auto` flag**, not load or concurrency: without it opencode waits forever for permission to write. See `.claude/agents/implementor.md`.
-
-The implementor delegates the code writing to Kimi K2 via `opencode run`, verifies it type-checks, and ticks the box. If it reports a task as blocked, resolve the blocker (usually a missing dependency or an ambiguous plan step) and re-run that task before moving on. Never advance past a blocked task.
+The implementor writes the code, verifies it type-checks, and ticks the box. If it reports a task as blocked, resolve the blocker (usually a missing dependency or an ambiguous plan step) and re-run that task before moving on. Never advance past a blocked task.
 
 Commit after each task or small group of related tasks:
 

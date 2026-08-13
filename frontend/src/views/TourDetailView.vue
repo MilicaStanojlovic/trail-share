@@ -1,22 +1,24 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToursStore } from '@/stores/tours'
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
 import { difficultyTagVariant } from '@/types/ui'
-import { formatDateLong } from '@/lib/dates'
+import { bookedAgoLabel, formatDateLong } from '@/lib/dates'
 import TrailMap from '@/components/TrailMap.vue'
 import AppButton from '@/components/AppButton.vue'
 import Tag from '@/components/Tag.vue'
 import AvatarInitials from '@/components/AvatarInitials.vue'
 import CapacityBar from '@/components/CapacityBar.vue'
+import BookSeatDialog from '@/components/BookSeatDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
 const toursStore = useToursStore()
 const toastStore = useToastStore()
 const authStore = useAuthStore()
+const dialogOpen = ref(false)
 
 const tour = computed(() => toursStore.current)
 
@@ -34,6 +36,33 @@ async function load(id: string): Promise<void> {
     toastStore.show('Tour not found')
     await router.replace('/tours')
   }
+}
+
+// Refetching keeps the view single-sourced: isBookedByMe, bookedCount and the
+// capacity bar all come from one canonical re-read rather than the booking
+// response. The id comes from the route rather than from `tour` so it stays
+// valid regardless of what the store holds mid-request.
+//
+// A plain dismissal ("Not now") also refetches, because the dialog reports
+// success and failure through the same close event and only the failure case
+// needs fresh data. That costs one redundant GET; it is not visible, since
+// fetchTour keeps the current tour on screen while re-reading the same id.
+let refetchedForThisAttempt = false
+
+function onBooked(): void {
+  refetchedForThisAttempt = true
+  void load(idOf(route.params.id))
+}
+
+function onDialogClose(): void {
+  dialogOpen.value = false
+  // The dialog emits close on every terminal path, failure included. After a
+  // success onBooked has already refetched; after a failure nothing has, and
+  // the seat state has usually changed under the user — so refetch here too.
+  if (!refetchedForThisAttempt) {
+    void load(idOf(route.params.id))
+  }
+  refetchedForThisAttempt = false
 }
 
 onMounted(() => {
@@ -116,18 +145,46 @@ watch(
         </div>
       </div>
 
-      <!-- Booking lands in slice 6: the CTA renders per the design for hikers
-           only, but stays disabled regardless of remaining seats. -->
+      <!-- Guide-only, and gated on the key's presence rather than its length:
+           the API omits `roster` for every viewer but the owning guide, and
+           sends `[]` when that guide's tour has no bookings yet. -->
+      <div v-if="tour.roster">
+        <h4 class="tour-detail__roster-title">Roster</h4>
+        <!-- The design's roster table has a tbody and no thead, which DataTable
+             cannot express — hence the raw markup. -->
+        <table v-if="tour.roster.length > 0" class="table">
+          <tbody>
+            <tr v-for="p of tour.roster" :key="p.bookedAt + p.name">
+              <td>{{ p.name }}</td>
+              <td :style="{ opacity: 0.6 }">{{ bookedAgoLabel(p.bookedAt) }}</td>
+              <td :style="{ textAlign: 'right' }">
+                <Tag variant="accent-2">{{ p.status === 'PAID' ? 'Paid' : 'Confirmed' }}</Tag>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="tour-detail__roster-empty">No bookings yet.</p>
+      </div>
+
       <AppButton
         v-if="!authStore.isGuide"
         variant="primary"
         block
-        disabled
+        :disabled="tour.isBookedByMe || tour.isFull"
         :style="{ minHeight: '46px', fontSize: '16px' }"
+        @click="dialogOpen = true"
       >
-        {{ tour.isFull ? 'Tour is full' : 'Book a seat' }}
+        {{ tour.isBookedByMe ? '✓ Seat booked' : tour.isFull ? 'Tour is full' : 'Book a seat' }}
       </AppButton>
     </div>
+
+    <BookSeatDialog
+      v-if="tour"
+      :open="dialogOpen"
+      :tour="tour"
+      @close="onDialogClose"
+      @booked="onBooked"
+    />
   </section>
 </template>
 
@@ -217,5 +274,15 @@ watch(
 .tour-detail__guide-stat {
   font-size: 12px;
   opacity: 0.65;
+}
+
+.tour-detail__roster-title {
+  margin: 6px 0 8px;
+}
+
+.tour-detail__roster-empty {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.6;
 }
 </style>

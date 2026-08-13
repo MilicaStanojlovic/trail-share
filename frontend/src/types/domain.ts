@@ -85,6 +85,9 @@ export interface Tour {
   pace: string
   notes: string
   createdAt: string
+  // Present only for the owning guide, on single-tour responses. Test key
+  // presence rather than length: absent and [] are different states.
+  roster?: RosterEntry[]
 }
 
 export interface CreateTourPayload {
@@ -94,4 +97,19 @@ export interface CreateTourPayload {
   meetingPoint: string
   pace: string
   notes?: string
+}
+
+export type BookingStatus = 'CONFIRMED' | 'PAID'
+
+export interface RosterEntry {
+  name: string
+  bookedAt: string
+  status: BookingStatus
+}
+
+export interface Booking {
+  id: string
+  status: BookingStatus
+  createdAt: string
+  tour: Tour
 }

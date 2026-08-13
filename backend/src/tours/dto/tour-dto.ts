@@ -1,4 +1,5 @@
 import { RouteActivity, RouteDifficulty } from '../../routes/route.entity';
+import type { BookingStatus } from '../../bookings/booking.entity';
 
 export interface TourRouteSummaryDto {
   id: string;
@@ -20,6 +21,14 @@ export interface TourGuideDto {
   rating: number;
 }
 
+// bookedAt is a raw ISO timestamp; the frontend formats the "booked n days
+// ago" label from it.
+export interface RosterEntryDto {
+  name: string;
+  bookedAt: string;
+  status: BookingStatus;
+}
+
 export interface TourDto {
   id: string;
   route: TourRouteSummaryDto;
@@ -32,12 +41,17 @@ export interface TourDto {
   bookedCount: number;
   seatsLeft: number;
   isFull: boolean;
-  // Always false until the booking slice adds optional-token awareness.
+  // Real for token-bearing viewers on every tour GET — those endpoints run
+  // behind OptionalAuthGuard — and false for anonymous ones.
   isBookedByMe: boolean;
   meetingPoint: string;
   pace: string;
   notes: string;
   createdAt: string;
-  // There is deliberately no roster field yet: the booking slice adds it
-  // additively, for the owning guide only.
+  // Present whenever the viewer is the owning guide, on any endpoint returning
+  // a single decorated tour — the detail GET and the 201 from scheduling one,
+  // since the scheduling guide owns it. Lists never carry it. An owning guide
+  // with no bookings gets [], while for every other viewer the key is absent
+  // entirely rather than undefined.
+  roster?: RosterEntryDto[];
 }

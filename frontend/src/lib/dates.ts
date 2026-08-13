@@ -7,3 +7,15 @@ export function formatDateLong(iso: string): string {
     month: 'long',
   })
 }
+
+// A zero or negative day count means the booking was made today (clock skew included).
+export function bookedAgoLabel(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+  if (days <= 0) {
+    return 'booked today'
+  }
+  if (days === 1) {
+    return 'booked 1 day ago'
+  }
+  return 'booked ' + days + ' days ago'
+}

@@ -4,6 +4,7 @@ import PlaceholderView from '@/views/PlaceholderView.vue'
 import DiscoverView from '@/views/DiscoverView.vue'
 import ToursView from '@/views/ToursView.vue'
 import TourDetailView from '@/views/TourDetailView.vue'
+import MyBookingsView from '@/views/MyBookingsView.vue'
 import RouteDetailView from '@/views/RouteDetailView.vue'
 import DrawRouteView from '@/views/DrawRouteView.vue'
 import AuthView from '@/views/AuthView.vue'
@@ -22,7 +23,7 @@ const router = createRouter({
         { path: '/routes', name: 'routes', component: DiscoverView },
         { path: '/tours', name: 'tours', component: ToursView },
         { path: '/tours/:id', name: 'tour-detail', component: TourDetailView },
-        { path: '/my', name: 'my', component: PlaceholderView },
+        { path: '/my', name: 'my', component: MyBookingsView },
         {
           path: '/dashboard',
           name: 'dashboard',

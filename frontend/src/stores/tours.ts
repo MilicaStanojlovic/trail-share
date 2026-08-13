@@ -19,9 +19,14 @@ export const useToursStore = defineStore('tours', () => {
   }
 
   async function fetchTour(id: string): Promise<void> {
-    // Clear the previous tour immediately so a stale tour never renders
-    // while the new one is still loading.
-    current.value = null
+    // Clear only when switching to a different tour, so a stale one never
+    // renders while the new one loads. Refreshing the tour already on screen
+    // must not blank it: the detail view is behind a v-if on this value, so
+    // nulling it would unmount the page and re-initialise Leaflet mid-request,
+    // which is what a booking or a dismissed dialog triggers.
+    if (current.value?.id !== id) {
+      current.value = null
+    }
     loading.value = true
     try {
       current.value = await api.get<Tour>('/tours/' + id)
