@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import AppLayout from '@/layouts/AppLayout.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 import DiscoverView from '@/views/DiscoverView.vue'
+import ToursView from '@/views/ToursView.vue'
 import RouteDetailView from '@/views/RouteDetailView.vue'
 import DrawRouteView from '@/views/DrawRouteView.vue'
 import AuthView from '@/views/AuthView.vue'
@@ -18,7 +19,7 @@ const router = createRouter({
       children: [
         { path: '', redirect: '/routes' },
         { path: '/routes', name: 'routes', component: DiscoverView },
-        { path: '/tours', name: 'tours', component: PlaceholderView },
+        { path: '/tours', name: 'tours', component: ToursView },
         { path: '/my', name: 'my', component: PlaceholderView },
         {
           path: '/dashboard',
