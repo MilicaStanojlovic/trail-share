@@ -17,7 +17,17 @@ const tourLabel = computed(() => {
 </script>
 
 <template>
-  <div class="card elev-sm route-card" @click="emit('open')">
+  <!-- Keyboard reachable, unlike the design's bare div: opening a route is the
+       only way off the Discover grid, so a keyboard user would otherwise be
+       stranded there. Same call made for sign-out in AppNav. -->
+  <div
+    class="card elev-sm route-card"
+    role="button"
+    tabindex="0"
+    @click="emit('open')"
+    @keydown.enter.prevent="emit('open')"
+    @keydown.space.prevent="emit('open')"
+  >
     <div class="route-card-strip">
       <div class="route-card-spark">
         <RouteSparkline :coords="route.waypoints" />

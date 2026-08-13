@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { api, ApiError, TOKEN_STORAGE_KEY } from '../lib/api'
+import { api, TOKEN_STORAGE_KEY } from '../lib/api'
 import type { AuthUser, AuthResponse, Role } from '../types/domain'
 
 export const useAuthStore = defineStore('auth', () => {
