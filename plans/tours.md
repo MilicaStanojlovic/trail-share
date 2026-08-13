@@ -187,7 +187,7 @@ After this contract is fixed, **T1–T9 (backend) and T10–T16 (frontend) are i
 
 ### Joint
 
-- [ ] **T17 — Verification pass**
+- [x] **T17 — Verification pass**
   - Files: none (fix-ups only in files from T1–T16)
   - Do: Run `npm run lint`, `npm test`, `npm run test:e2e` in `backend/` (Docker running), and `npm run type-check`, `npm run build` (and `npm run test:unit` if present from slice 4) in `frontend/`. Fix failures introduced by this slice; leave pre-existing issues outside this slice's files alone. Smoke the flow of T13/T14/T16's Done-when lines once against seeded data.
   - Done when: all commands exit 0.
