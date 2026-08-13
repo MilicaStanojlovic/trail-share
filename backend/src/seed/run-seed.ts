@@ -7,9 +7,10 @@ async function main(): Promise<void> {
   const app = await NestFactory.createApplicationContext(AppModule);
   const dataSource = app.get(DataSource);
 
-  const { usersCreated, routesCreated } = await seedDatabase(dataSource);
+  const { usersCreated, routesCreated, toursCreated } =
+    await seedDatabase(dataSource);
   console.log(
-    `Seed complete: ${usersCreated} users created, ${routesCreated} routes created`,
+    `Seed complete: ${usersCreated} users created, ${routesCreated} routes created, ${toursCreated} tours created`,
   );
 
   await app.close();

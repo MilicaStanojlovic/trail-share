@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RoutesService } from './routes.service';
 import { Route, RouteActivity, RouteDifficulty } from './route.entity';
+import { Tour } from '../tours/tour.entity';
 import { User, UserRole } from '../users/user.entity';
 import { computeRouteStats } from './route-stats';
 import { CreateRouteDto } from './dto/create-route.dto';
@@ -35,6 +36,28 @@ const queryBuilderMock: QueryBuilderMock = {
   getOne: jest.fn<Promise<Route | null>, []>(),
 };
 
+type TourQueryBuilderMock = {
+  select: jest.Mock<TourQueryBuilderMock, [string, string]>;
+  addSelect: jest.Mock<TourQueryBuilderMock, [string, string]>;
+  where: jest.Mock<TourQueryBuilderMock, [string, Record<string, unknown>]>;
+  andWhere: jest.Mock<TourQueryBuilderMock, [string, Record<string, unknown>]>;
+  groupBy: jest.Mock<TourQueryBuilderMock, [string]>;
+  getRawMany: jest.Mock<Promise<Array<{ routeId: string; count: string }>>, []>;
+};
+
+const tourQueryBuilderMock: TourQueryBuilderMock = {
+  select: jest.fn<TourQueryBuilderMock, [string, string]>().mockReturnThis(),
+  addSelect: jest.fn<TourQueryBuilderMock, [string, string]>().mockReturnThis(),
+  where: jest
+    .fn<TourQueryBuilderMock, [string, Record<string, unknown>]>()
+    .mockReturnThis(),
+  andWhere: jest
+    .fn<TourQueryBuilderMock, [string, Record<string, unknown>]>()
+    .mockReturnThis(),
+  groupBy: jest.fn<TourQueryBuilderMock, [string]>().mockReturnThis(),
+  getRawMany: jest.fn<Promise<Array<{ routeId: string; count: string }>>, []>(),
+};
+
 type RoutesRepositoryMock = jest.Mocked<
   Pick<Repository<Route>, 'createQueryBuilder' | 'create' | 'save'>
 >;
@@ -51,6 +74,16 @@ const routesRepositoryMock: RoutesRepositoryMock = {
       id: 'route-1',
     }),
   ) as unknown as RoutesRepositoryMock['save'],
+};
+
+type ToursRepositoryMock = jest.Mocked<
+  Pick<Repository<Tour>, 'createQueryBuilder'>
+>;
+
+const toursRepositoryMock: ToursRepositoryMock = {
+  createQueryBuilder: jest.fn(
+    () => tourQueryBuilderMock,
+  ) as unknown as ToursRepositoryMock['createQueryBuilder'],
 };
 
 describe('RoutesService', () => {
@@ -90,6 +123,7 @@ describe('RoutesService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    tourQueryBuilderMock.getRawMany.mockResolvedValue([]);
 
     const module = await Test.createTestingModule({
       providers: [
@@ -97,6 +131,10 @@ describe('RoutesService', () => {
         {
           provide: getRepositoryToken(Route),
           useValue: routesRepositoryMock,
+        },
+        {
+          provide: getRepositoryToken(Tour),
+          useValue: toursRepositoryMock,
         },
       ],
     }).compile();
@@ -364,6 +402,27 @@ describe('RoutesService', () => {
         'ASC',
       );
       expect(result).toEqual([]);
+    });
+
+    it('counts upcoming tours for each route with a single grouped query', async () => {
+      const routeA: Route = {
+        ...route,
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      };
+      const routeB: Route = {
+        ...route,
+        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      };
+      queryBuilderMock.getMany.mockResolvedValue([routeA, routeB]);
+      tourQueryBuilderMock.getRawMany.mockResolvedValue([
+        { routeId: routeA.id, count: '2' },
+      ]);
+
+      const result = await service.findAll({});
+
+      expect(result[0].tourCount).toBe(2);
+      expect(result[1].tourCount).toBe(0);
+      expect(toursRepositoryMock.createQueryBuilder).toHaveBeenCalledTimes(1);
     });
   });
 });

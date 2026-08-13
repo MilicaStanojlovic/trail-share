@@ -47,3 +47,51 @@ export interface CreateRoutePayload {
   activity: Activity
   waypoints: [number, number][]
 }
+
+export interface TourRouteSummary {
+  id: string
+  name: string
+  difficulty: Difficulty
+  activity: Activity
+  waypoints: [number, number][]
+  distanceKm: number
+  distanceLabel: string
+  elevationM: number
+  elevationLabel: string
+  durationLabel: string
+}
+
+export interface TourGuide {
+  id: string
+  displayName: string
+  toursLed: number
+  rating: number
+}
+
+export interface Tour {
+  id: string
+  route: TourRouteSummary
+  guide: TourGuide
+  date: string
+  startTime: string
+  endTime: string
+  timeLabel: string
+  capacity: number
+  bookedCount: number
+  seatsLeft: number
+  isFull: boolean
+  isBookedByMe: boolean
+  meetingPoint: string
+  pace: string
+  notes: string
+  createdAt: string
+}
+
+export interface CreateTourPayload {
+  date: string
+  startTime: string
+  capacity: number
+  meetingPoint: string
+  pace: string
+  notes?: string
+}

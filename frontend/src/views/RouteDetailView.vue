@@ -1,21 +1,33 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRoutesStore } from '@/stores/routes'
+import { useToursStore } from '@/stores/tours'
+import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
-import { difficultyTagVariant } from '@/types/ui'
+import { difficultyTagVariant, seatTagState } from '@/types/ui'
+import { formatDateLong } from '@/lib/dates'
 import TrailMap from '@/components/TrailMap.vue'
 import AppButton from '@/components/AppButton.vue'
 import Tag from '@/components/Tag.vue'
 import StatTile from '@/components/StatTile.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import ScheduleTourDialog from '@/components/ScheduleTourDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
 const routesStore = useRoutesStore()
+const toursStore = useToursStore()
+const authStore = useAuthStore()
 const toastStore = useToastStore()
 
 const currentRoute = computed(() => routesStore.current)
+const dialogOpen = ref(false)
+
+const routeTours = computed(() => {
+  // Keeps a previous route's tours from flashing while the new fetch is in flight.
+  return toursStore.routeTours.filter((t) => t.route.id === idOf(route.params.id))
+})
 
 // Route params are typed `string | string[]`; the catalog only ever produces a
 // single `:id` segment, so collapse the array form to its first value.
@@ -30,6 +42,24 @@ async function load(id: string): Promise<void> {
   } catch {
     toastStore.show('Route not found')
     await router.replace('/routes')
+    return
+  }
+
+  // A tour-list failure must never bounce the user off a route that loaded fine.
+  try {
+    await toursStore.fetchRouteTours(id)
+  } catch {
+    // no-op
+  }
+}
+
+async function onScheduled(): Promise<void> {
+  // Re-fetch the route tours so the new tour appears in date order.
+  // A tour-list failure must never bounce the user off a route that loaded fine.
+  try {
+    await toursStore.fetchRouteTours(idOf(route.params.id))
+  } catch {
+    // no-op: the dialog already showed a toast.
   }
 }
 
@@ -88,10 +118,60 @@ watch(
 
       <div class="route-detail__section-head">
         <h4>Upcoming tours</h4>
+        <AppButton
+          v-if="authStore.isGuide"
+          variant="primary"
+          @click="dialogOpen = true"
+        >
+          Schedule a tour
+        </AppButton>
       </div>
 
-      <EmptyState compact message="No tours scheduled on this route yet." />
+      <div v-if="routeTours.length" class="route-detail__tours">
+        <div
+          v-for="t in routeTours"
+          :key="t.id"
+          class="card route-detail__tour"
+          role="button"
+          tabindex="0"
+          @click="router.push('/tours/' + t.id)"
+          @keydown.enter.prevent="router.push('/tours/' + t.id)"
+          @keydown.space.prevent="router.push('/tours/' + t.id)"
+        >
+          <div style="display: flex; align-items: center; gap: 10px">
+            <div class="route-detail__tour-date">
+              {{ formatDateLong(t.date) }}
+            </div>
+            <Tag
+              :variant="seatTagState(t.bookedCount, t.capacity, t.isBookedByMe).variant"
+              style="margin-left: auto"
+            >
+              {{ seatTagState(t.bookedCount, t.capacity, t.isBookedByMe).label }}
+            </Tag>
+          </div>
+          <div class="route-detail__tour-meta">
+            {{ t.timeLabel }} · {{ t.meetingPoint }} · led by {{ t.guide.displayName }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Not while the tour fetch is still in flight: it runs after the route
+           fetch resolves, so an unguarded empty state claims a route has no
+           tours for the length of a request, then contradicts itself. -->
+      <EmptyState
+        v-else-if="!toursStore.loading"
+        compact
+        message="No tours scheduled on this route yet."
+      />
     </div>
+
+    <ScheduleTourDialog
+      v-if="currentRoute"
+      :open="dialogOpen"
+      :route="currentRoute"
+      @close="dialogOpen = false"
+      @scheduled="onScheduled"
+    />
   </section>
 </template>
 
@@ -153,5 +233,31 @@ watch(
 
 .route-detail__section-head h4 {
   margin: 0;
+}
+
+.route-detail__tours {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.route-detail__tour {
+  padding: 14px 16px;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.route-detail__tour:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.route-detail__tour-date {
+  font-family: var(--font-heading);
+  font-size: 15px;
+}
+
+.route-detail__tour-meta {
+  font-size: 12px;
+  opacity: 0.7;
 }
 </style>
