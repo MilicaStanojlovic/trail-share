@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { RoutesModule } from './routes/routes.module';
 import { ToursModule } from './tours/tours.module';
+import { BookingsModule } from './bookings/bookings.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ToursModule } from './tours/tours.module';
     AuthModule,
     RoutesModule,
     ToursModule,
+    BookingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

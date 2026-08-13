@@ -4,9 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { CreateTourDto } from './dto/create-tour.dto';
-import { TourDto } from './dto/tour-dto';
+import { RosterEntryDto, TourDto } from './dto/tour-dto';
+// import type, not a value import: AuthUser only ever appears in type position
+// here, and a value import of it trips TS1272 at decorated call sites.
+import type { AuthUser } from '../auth/auth-user';
+import { Booking } from '../bookings/booking.entity';
 import { Tour } from './tour.entity';
 import { computeEndTime, normalizeTime, timeLabel } from './tour-time';
 import { Route } from '../routes/route.entity';
@@ -28,6 +32,8 @@ export class ToursService {
     private readonly tours: Repository<Tour>,
     @InjectRepository(Route)
     private readonly routes: Repository<Route>,
+    @InjectRepository(Booking)
+    private readonly bookings: Repository<Booking>,
   ) {}
 
   private baseQuery() {
@@ -55,12 +61,12 @@ export class ToursService {
       .addOrderBy('tour.createdAt', 'ASC');
   }
 
-  async findUpcoming(): Promise<TourDto[]> {
+  async findUpcoming(viewer?: AuthUser): Promise<TourDto[]> {
     const rows = await this.upcomingQuery().getMany();
-    return this.decorateMany(rows);
+    return this.decorateMany(rows, viewer);
   }
 
-  async findById(id: string): Promise<TourDto> {
+  async findById(id: string, viewer?: AuthUser): Promise<TourDto> {
     // No upcoming filter here: a deep link to a tour must keep working the day
     // after it ran.
     const tour = await this.baseQuery().where('tour.id = :id', { id }).getOne();
@@ -69,23 +75,39 @@ export class ToursService {
       throw new NotFoundException('Tour not found');
     }
 
-    return this.decorateOne(tour);
+    return this.decorateOne(tour, viewer);
   }
 
-  async findForRoute(routeId: string): Promise<TourDto[]> {
+  async findForRoute(routeId: string, viewer?: AuthUser): Promise<TourDto[]> {
     await this.assertRouteExists(routeId);
 
     const rows = await this.upcomingQuery()
       .andWhere('tour.routeId = :routeId', { routeId })
       .getMany();
 
-    return this.decorateMany(rows);
+    return this.decorateMany(rows, viewer);
+  }
+
+  // BookingsService uses this to decorate the caller's My bookings list.
+  async findManyByIds(ids: string[], viewer?: AuthUser): Promise<TourDto[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const rows = await this.baseQuery()
+      .where('tour.id IN (:...ids)', { ids })
+      .orderBy('tour.date', 'ASC')
+      .addOrderBy('tour.startTime', 'ASC')
+      .getMany();
+
+    return this.decorateMany(rows, viewer);
   }
 
   async create(
     routeId: string,
     dto: CreateTourDto,
     guideId: string,
+    viewer?: AuthUser,
   ): Promise<TourDto> {
     await this.assertRouteExists(routeId);
 
@@ -105,7 +127,7 @@ export class ToursService {
       notes: dto.notes?.trim() ?? '',
     });
     const saved = await this.tours.save(tour);
-    return this.findById(saved.id);
+    return this.findById(saved.id, viewer);
   }
 
   private async assertRouteExists(routeId: string): Promise<void> {
@@ -113,6 +135,23 @@ export class ToursService {
     if (!routeExists) {
       throw new NotFoundException('Route not found');
     }
+  }
+
+  // One query for the whole page, never one per tour — the N+1 the plan forbids.
+  private async bookedTourIds(
+    tourIds: string[],
+    viewer?: AuthUser,
+  ): Promise<Set<string>> {
+    if (viewer === undefined || tourIds.length === 0) {
+      return new Set<string>();
+    }
+
+    const rows = await this.bookings.find({
+      where: { hikerId: viewer.id, tourId: In(tourIds) },
+      select: { tourId: true },
+    });
+
+    return new Set(rows.map((row) => row.tourId));
   }
 
   // Counts every tour a guide leads, past ones included. One grouped query for
@@ -140,18 +179,56 @@ export class ToursService {
     return counts;
   }
 
-  private async decorateMany(rows: Tour[]): Promise<TourDto[]> {
+  private async decorateMany(
+    rows: Tour[],
+    viewer?: AuthUser,
+  ): Promise<TourDto[]> {
     const guideIds = [...new Set(rows.map((tour) => tour.guide.id))];
     const counts = await this.toursLedByGuide(guideIds);
-    return rows.map((tour) => this.toDto(tour, counts.get(tour.guide.id) ?? 0));
+    const booked = await this.bookedTourIds(
+      rows.map((tour) => tour.id),
+      viewer,
+    );
+    return rows.map((tour) =>
+      this.toDto(tour, counts.get(tour.guide.id) ?? 0, booked.has(tour.id)),
+    );
   }
 
-  private async decorateOne(tour: Tour): Promise<TourDto> {
+  private async decorateOne(tour: Tour, viewer?: AuthUser): Promise<TourDto> {
     const counts = await this.toursLedByGuide([tour.guide.id]);
-    return this.toDto(tour, counts.get(tour.guide.id) ?? 0);
+    const booked = await this.bookedTourIds([tour.id], viewer);
+    const dto = this.toDto(
+      tour,
+      counts.get(tour.guide.id) ?? 0,
+      booked.has(tour.id),
+    );
+
+    // The roster belongs to the owning guide alone. Every other viewer — a
+    // hiker, another guide, an anonymous reader — gets no roster key at all,
+    // so the property is left unset rather than assigned undefined.
+    if (viewer !== undefined && viewer.id === tour.guideId) {
+      const rows = await this.bookings
+        .createQueryBuilder('booking')
+        // leftJoin plus an explicit addSelect, never leftJoinAndSelect: the
+        // latter would read the hiker's password hash out of Postgres.
+        .leftJoin('booking.hiker', 'hiker')
+        .addSelect(['hiker.id', 'hiker.displayName'])
+        .where('booking.tourId = :tourId', { tourId: tour.id })
+        .orderBy('booking.createdAt', 'ASC')
+        .getMany();
+
+      const roster: RosterEntryDto[] = rows.map((row) => ({
+        name: row.hiker.displayName,
+        bookedAt: row.createdAt.toISOString(),
+        status: row.status,
+      }));
+      dto.roster = roster;
+    }
+
+    return dto;
   }
 
-  private toDto(tour: Tour, toursLed: number): TourDto {
+  private toDto(tour: Tour, toursLed: number, isBookedByMe: boolean): TourDto {
     const { waypoints, activity } = tour.route;
     // The end time rounds off the same unrounded distance and elevation that
     // computeRouteStats feeds durationHours, so the range on screen always
@@ -189,7 +266,7 @@ export class ToursService {
       bookedCount: tour.bookedCount,
       seatsLeft,
       isFull: seatsLeft <= 0,
-      isBookedByMe: false,
+      isBookedByMe,
       meetingPoint: tour.meetingPoint,
       pace: tour.pace,
       notes: tour.notes,
