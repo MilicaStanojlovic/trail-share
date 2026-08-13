@@ -158,6 +158,7 @@ describe('RoutesController (e2e)', () => {
       usersCreated: 0,
       routesCreated: 0,
       toursCreated: 0,
+      bookingsCreated: 0,
     });
 
     const response = await request(ctx.app.getHttpServer() as App)

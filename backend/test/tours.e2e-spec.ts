@@ -177,7 +177,9 @@ describe('ToursController and RouteToursController (e2e)', () => {
     ]);
     expect(body.route.name).toBe(routeName);
     expect(body.route.waypoints).toHaveLength(3);
-    expect('roster' in body).toBe(false);
+    // The creating guide is the viewer of the read-back, so a brand new tour
+    // comes back with an empty roster (plans/booking.md T4), never with rows.
+    expect(body.roster).toEqual([]);
   });
 
   describe('400 validation cases', () => {
