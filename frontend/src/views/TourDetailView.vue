@@ -40,8 +40,13 @@ async function load(id: string): Promise<void> {
 
 // Refetching keeps the view single-sourced: isBookedByMe, bookedCount and the
 // capacity bar all come from one canonical re-read rather than the booking
-// response. The id comes from the route, not from `tour`, because fetchTour
-// clears `current` while the request is in flight.
+// response. The id comes from the route rather than from `tour` so it stays
+// valid regardless of what the store holds mid-request.
+//
+// A plain dismissal ("Not now") also refetches, because the dialog reports
+// success and failure through the same close event and only the failure case
+// needs fresh data. That costs one redundant GET; it is not visible, since
+// fetchTour keeps the current tour on screen while re-reading the same id.
 let refetchedForThisAttempt = false
 
 function onBooked(): void {
