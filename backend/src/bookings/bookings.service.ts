@@ -148,7 +148,16 @@ export class BookingsService {
         );
       }
 
-      await em.delete(Booking, bookingId);
+      // Decrement only if this request is the one that actually removed the
+      // row. Two overlapping cancels of the same booking both load it and both
+      // pass the 24 h check; without this guard the loser's delete affects
+      // nothing but its decrement still lands, freeing one seat while dropping
+      // the counter by two — the tour then advertises a seat nobody holds.
+      const deletion = await em.delete(Booking, bookingId);
+      if (!deletion.affected) {
+        return;
+      }
+
       // GREATEST floors the counter at zero: the seeded bookings were never
       // counted into bookedCount, so cancelling one must not drive it negative.
       await em

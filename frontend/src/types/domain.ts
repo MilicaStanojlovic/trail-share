@@ -85,7 +85,8 @@ export interface Tour {
   pace: string
   notes: string
   createdAt: string
-  // Present only on the tour detail response and only for the owning guide.
+  // Present only for the owning guide, on single-tour responses. Test key
+  // presence rather than length: absent and [] are different states.
   roster?: RosterEntry[]
 }
 

@@ -36,7 +36,11 @@ type EntityManagerMock = {
 const entityManagerMock: EntityManagerMock = {
   findOne: jest.fn<Promise<unknown>, [unknown, unknown]>(),
   insert: jest.fn<Promise<unknown>, [unknown, unknown]>(),
-  delete: jest.fn<Promise<unknown>, [unknown, unknown]>(),
+  // Defaults to one affected row: cancel only decrements when its delete
+  // actually removed something, so an undefined result is not a valid stand-in.
+  delete: jest
+    .fn<Promise<unknown>, [unknown, unknown]>()
+    .mockResolvedValue({ affected: 1 }),
   createQueryBuilder: jest.fn<UpdateBuilderMock, []>(() => updateBuilderMock),
 };
 

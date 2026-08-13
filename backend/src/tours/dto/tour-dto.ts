@@ -48,8 +48,10 @@ export interface TourDto {
   pace: string;
   notes: string;
   createdAt: string;
-  // Present only on GET /api/tours/:id, and only when the viewer is the owning
-  // guide: an owning guide with no bookings gets [], while for every other
-  // viewer the key is absent entirely rather than undefined.
+  // Present whenever the viewer is the owning guide, on any endpoint returning
+  // a single decorated tour — the detail GET and the 201 from scheduling one,
+  // since the scheduling guide owns it. Lists never carry it. An owning guide
+  // with no bookings gets [], while for every other viewer the key is absent
+  // entirely rather than undefined.
   roster?: RosterEntryDto[];
 }

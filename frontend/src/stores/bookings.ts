@@ -5,6 +5,15 @@ import type { Booking } from '../types/domain'
 
 export const useBookingsStore = defineStore('bookings', () => {
   const mine = ref<Booking[]>([])
+
+  /**
+   * Pinia stores outlive a sign-out, which is client-side only. Without this
+   * the next account to sign in on the same tab sees the previous hiker's
+   * bookings painted for one frame before their own fetch resolves.
+   */
+  function reset(): void {
+    mine.value = []
+  }
   const loading = ref(false)
 
   async function fetchMine(): Promise<void> {
@@ -25,6 +34,7 @@ export const useBookingsStore = defineStore('bookings', () => {
   return {
     mine,
     loading,
+    reset,
     fetchMine,
     bookSeat,
   }
