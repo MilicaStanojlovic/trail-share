@@ -336,9 +336,15 @@ All list responses should return decorated DTOs so the frontend renders labels w
      maxZoom: 18,
      attribution: '© OpenStreetMap',
    }).addTo(map)
+
+   // TrailShare.dc.html:566 — view and draw modes move the control:
+   if (mode !== 'hero') map.zoomControl.setPosition('bottomright')
+
+   // draw mode only (slice 4):
+   if (mode === 'draw') map.on('click', (e) => addPoint(e.latlng.lat, e.latlng.lng))
    ```
 
-   Note the design leaves the zoom control in Leaflet's default top-left position; an earlier draft of this spec said bottom-right, which the source does not do.
+   So: **hero** has no zoom control at all and no scroll-wheel zoom; **view** and **draw** get one at **bottom-right**.
 2. **Route rendering (view/hero)**, verbatim from `TrailShare.dc.html:601-613`:
 
    ```js
