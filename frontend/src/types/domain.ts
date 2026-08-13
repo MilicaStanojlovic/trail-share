@@ -85,6 +85,8 @@ export interface Tour {
   pace: string
   notes: string
   createdAt: string
+  // Present only on the tour detail response and only for the owning guide.
+  roster?: RosterEntry[]
 }
 
 export interface CreateTourPayload {
@@ -94,4 +96,19 @@ export interface CreateTourPayload {
   meetingPoint: string
   pace: string
   notes?: string
+}
+
+export type BookingStatus = 'CONFIRMED' | 'PAID'
+
+export interface RosterEntry {
+  name: string
+  bookedAt: string
+  status: BookingStatus
+}
+
+export interface Booking {
+  id: string
+  status: BookingStatus
+  createdAt: string
+  tour: Tour
 }
