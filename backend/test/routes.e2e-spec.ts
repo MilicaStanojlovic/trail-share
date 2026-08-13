@@ -142,7 +142,11 @@ describe('RoutesController (e2e)', () => {
 
   it('seedDatabase is idempotent', async () => {
     const result = await seedDatabase(ctx.app.get(DataSource));
-    expect(result).toEqual({ usersCreated: 0, routesCreated: 0 });
+    expect(result).toEqual({
+      usersCreated: 0,
+      routesCreated: 0,
+      toursCreated: 0,
+    });
 
     const response = await request(ctx.app.getHttpServer() as App)
       .get('/api/routes')
