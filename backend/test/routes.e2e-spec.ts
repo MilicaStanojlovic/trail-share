@@ -57,7 +57,6 @@ describe('RoutesController (e2e)', () => {
     expect(route.waypoints[0]).toEqual([45.9002, 15.9432]);
 
     expect(route.waypointCount).toBe(8);
-    expect(route.tourCount).toBe(0);
     expect(route.distanceKm).toBe(7.5);
     expect(route.distanceLabel).toBe('7.5 km');
     expect(route.elevationM).toBe(440);
@@ -67,6 +66,19 @@ describe('RoutesController (e2e)', () => {
     expect(new Date(route.createdAt).toISOString()).toBe(route.createdAt);
 
     firstRouteId = route.id;
+  });
+
+  // tourCount stopped being a hardcoded 0 once tours existed. Asserting the
+  // seeded literal (2) would expire the day the seed dates fall behind
+  // CURRENT_DATE, so the invariant is checked instead: a route card's count is
+  // always the length of the list on its detail page.
+  it('the first route tourCount equals the length of its upcoming tour list', async () => {
+    const response = await request(ctx.app.getHttpServer() as App)
+      .get(`/api/routes/${firstRouteId}/tours`)
+      .expect(200);
+
+    const tours = response.body as unknown[];
+    expect(routes[0].tourCount).toBe(tours.length);
   });
 
   it('GET /api/routes?difficulty=Easy returns the easy routes in order', async () => {
