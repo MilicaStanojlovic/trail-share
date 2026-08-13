@@ -43,7 +43,11 @@ For each unchecked task **in order**, launch a fresh **implementor** agent with:
 - the exact task ID (e.g. `T4`),
 - a one-paragraph summary of what previous tasks actually produced (the implementor has no memory of earlier invocations).
 
-Run these **sequentially, never in parallel** — every task shares one working tree, and concurrent agents clobber each other's edits. Buffered writes from a killed `opencode` can also land *after* an agent has given up and written the file itself, so overlapping runs produce genuinely confusing diffs.
+Run these **sequentially by default** — tasks share one working tree, and concurrent agents editing the same files clobber each other. Buffered writes from a killed `opencode` can also land *after* an agent has given up and written the file itself, so overlapping runs produce genuinely confusing diffs.
+
+**The one safe parallelism: the backend and frontend halves of a slice.** Once the plan's API contract is written, `backend/` tasks and `frontend/` tasks touch disjoint directories, and the frontend is built against the contract rather than against the backend's code. Running the two halves at once roughly halves this phase. Tell each agent explicitly which directory it owns and that a counterpart is live. The only shared file is the plan itself — instruct both to tick **only their own** boxes as single-line edits.
+
+Do not reach for `isolation: "worktree"` to get this. Agent worktrees are branched from `origin/<default-branch>`, not from the feature branch, so the agent lands in a tree with none of the slices you have already merged and correctly refuses to work. Just run both agents in the main checkout with disjoint directory ownership.
 
 **If opencode hangs at zero output, the cause is almost always a missing `--auto` flag**, not load or concurrency: without it opencode waits forever for permission to write. See `.claude/agents/implementor.md`.
 
