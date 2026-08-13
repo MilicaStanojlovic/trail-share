@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { CreateRouteDto } from './dto/create-route.dto';
 import { ListRoutesQueryDto } from './dto/list-routes-query.dto';
 import { RouteDto } from './dto/route-dto';
 import { Route } from './route.entity';
@@ -53,6 +54,22 @@ export class RoutesService {
     }
 
     return this.toDto(route);
+  }
+
+  async create(dto: CreateRouteDto, authorId: string): Promise<RouteDto> {
+    const description = dto.description?.trim()
+      ? dto.description.trim()
+      : 'No description yet.';
+    const route = this.routes.create({
+      name: dto.name,
+      description,
+      difficulty: dto.difficulty,
+      activity: dto.activity,
+      waypoints: dto.waypoints,
+      authorId,
+    });
+    const saved = await this.routes.save(route);
+    return this.findById(saved.id);
   }
 
   private toDto(route: Route): RouteDto {
