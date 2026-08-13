@@ -1,0 +1,101 @@
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { compare, hash } from 'bcryptjs';
+import { User, UserRole } from '../users/user.entity';
+import { UsersService } from '../users/users.service';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+
+export interface PublicUser {
+  id: string;
+  displayName: string;
+  email: string;
+  role: UserRole;
+}
+
+export interface AuthPayload {
+  token: string;
+  user: PublicUser;
+}
+
+/** Postgres unique_violation. TypeORM surfaces the driver code untyped. */
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === '23505'
+  );
+}
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private readonly users: UsersService,
+    private readonly jwt: JwtService,
+  ) {}
+
+  async register(dto: RegisterDto): Promise<AuthPayload> {
+    const existing = await this.users.findByEmail(dto.email);
+    if (existing) {
+      throw new ConflictException('Email is already registered');
+    }
+
+    const passwordHash = await hash(dto.password, 10);
+
+    let user: User;
+    try {
+      user = await this.users.create({
+        displayName: dto.displayName,
+        email: dto.email,
+        passwordHash,
+        role: dto.role,
+      });
+    } catch (error) {
+      // The findByEmail check above is check-then-insert, so two simultaneous
+      // registrations for one address both pass it and the loser hits the
+      // unique index. Translate that into the contract's 409 rather than
+      // letting a raw QueryFailedError surface as a 500.
+      if (isUniqueViolation(error)) {
+        throw new ConflictException('Email is already registered');
+      }
+      throw error;
+    }
+
+    return this.buildAuthPayload(user);
+  }
+
+  async login(dto: LoginDto): Promise<AuthPayload> {
+    const user = await this.users.findByEmail(dto.email);
+    // Unknown email and wrong password must throw the exact same message so the
+    // API does not leak which accounts exist.
+    if (!user || !(await compare(dto.password, user.passwordHash))) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    return this.buildAuthPayload(user);
+  }
+
+  private async buildAuthPayload(user: User): Promise<AuthPayload> {
+    const token = await this.jwt.signAsync({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    return { token, user: this.toPublicUser(user) };
+  }
+
+  private toPublicUser(user: User): PublicUser {
+    return {
+      id: user.id,
+      displayName: user.displayName,
+      email: user.email,
+      role: user.role,
+    };
+  }
+}

@@ -24,7 +24,11 @@ Run with the working directory set to `backend/` or `frontend/` as appropriate:
 opencode run --auto -m opencode-go/kimi-k2.7-code "<prompt>"
 ```
 
-**`--auto` is mandatory.** Without it opencode asks for permission before its first write, and in a non-interactive shell that prompt never gets an answer — the process sits at zero output until your timeout and touches nothing. A prompt that needs no tools (say, "reply PONG") still succeeds, so a passing smoke test does not prove the flag is unnecessary.
+Three things about this invocation, each learned the hard way:
+
+- **`--auto` is mandatory.** Without it opencode asks for permission before its first write, and in a non-interactive shell that prompt never gets an answer — the process sits at zero output until your timeout and touches nothing. A prompt that needs no tools (say, "reply PONG") still succeeds, so a passing smoke test does not prove the flag is unnecessary.
+- **Pass the prompt as a plain inline double-quoted argument.** A heredoc or `"$(< file)"` is rejected by the Bash permission classifier. Keep double quotes and backticks out of the prompt text so the inline form stays valid.
+- **Keep the prompt under ~5 000 characters.** Longer command strings get truncated mid-argument and the shell dies with `unexpected EOF`. For a detail-heavy file, send the exact strings and values that matter rather than a long recital of the design.
 
 The prompt you pass must be self-contained — Kimi has no access to this conversation. Include:
 - The exact files to create or edit, with full relative paths.

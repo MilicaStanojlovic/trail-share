@@ -1,4 +1,8 @@
-# Creates the local `trailshare` database and writes backend/.env.
+# Creates the local dev database and writes backend/.env.
+#
+# The name is trailshare_dev, not trailshare: this machine already has an
+# unrelated `trailshare` database managed by Flyway, and TypeORM's dev-mode
+# synchronize would try to reshape its tables.
 #
 # Run this yourself in a terminal — it prompts for your PostgreSQL superuser
 # password, so it is not something an agent should run on your behalf:
@@ -10,6 +14,7 @@
 
 $ErrorActionPreference = 'Stop'
 
+$dbName = 'trailshare_dev'
 $pgBin = 'C:\Program Files\PostgreSQL\16\bin'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $envPath = Join-Path $repoRoot 'backend\.env'
@@ -35,14 +40,31 @@ $env:PGPASSWORD = $plainPassword
 
 try {
     $exists = & "$pgBin\psql.exe" -U $superuser -d postgres -tAc `
-        "SELECT 1 FROM pg_database WHERE datname='trailshare'"
+        "SELECT 1 FROM pg_database WHERE datname='$dbName'"
 
     if ($exists -eq '1') {
-        Write-Host 'Database "trailshare" already exists — leaving it as is.'
+        # Reusing a database someone else owns is how you lose their data:
+        # TypeORM runs with synchronize on in dev and will happily reshape a
+        # table it did not create. Only adopt a database that is empty or
+        # already ours.
+        $foreign = & "$pgBin\psql.exe" -U $superuser -d $dbName -tAc @"
+SELECT count(*) FROM information_schema.tables
+WHERE table_schema = 'public' AND table_name NOT IN ('users','routes','waypoints','tours','bookings')
+"@
+        # Fail closed. A native exe's failure does not trip $ErrorActionPreference,
+        # so without this check a psql that could not connect leaves $foreign null,
+        # [int]$null is 0, and we would "verify" the database by not looking at it.
+        if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($foreign)) {
+            throw "Could not inspect the existing `"$dbName`" database (psql exit code $LASTEXITCODE). Refusing to touch it."
+        }
+        if ([int]$foreign -gt 0) {
+            throw "Database `"$dbName`" already exists and contains tables this project does not own (for example a flyway_schema_history from another app). Refusing to touch it. Pick a different name by editing `$dbName in this script, or drop that database yourself first."
+        }
+        Write-Host "Database `"$dbName`" already exists and looks like ours — leaving it as is."
     }
     else {
-        & "$pgBin\createdb.exe" -U $superuser trailshare
-        Write-Host 'Created database "trailshare".'
+        & "$pgBin\createdb.exe" -U $superuser $dbName
+        Write-Host "Created database `"$dbName`"."
     }
 
     if (Test-Path $envPath) {
@@ -62,7 +84,7 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_USER=$superuser
 DB_PASSWORD=$plainPassword
-DB_NAME=trailshare
+DB_NAME=$dbName
 "@ | Set-Content -Path $envPath -Encoding utf8
 
     Write-Host "Wrote $envPath (git-ignored)."

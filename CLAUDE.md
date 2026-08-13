@@ -42,6 +42,8 @@ plans/            one checklist file per feature — the multiagent pipeline's s
 
 Postgres runs as a **local Windows service** (`postgresql-x64-16`) — there is no Docker container for the dev database. Docker is needed only for the Testcontainers e2e suite.
 
+The dev database is **`trailshare_dev`**. Do not point this project at the `trailshare` database on this machine: it belongs to an unrelated Flyway-managed app, and TypeORM's dev-mode `synchronize` would try to reshape its tables. `scripts/setup-db.ps1` creates `trailshare_dev` and refuses to adopt a database containing tables this project does not own.
+
 See the **`run`** skill to start the stack and the **`test`** skill for the suites. In short: `cd backend && npm run start:dev`, `cd frontend && npm run dev`, and pre-merge `npm run lint && npm test && npm run test:e2e` in `backend/` plus `npm run type-check && npm run build` in `frontend/`.
 
 ## Design is the source of truth for all UI
