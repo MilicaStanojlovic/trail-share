@@ -24,7 +24,9 @@ Start-Service postgresql-x64-16   # if it is stopped
 
 Connection settings live in `backend/.env` (copy from `backend/.env.example` if it is missing). Docker is only needed for the Testcontainers e2e suite — see the `test` skill.
 
-First-time setup creates the `trailshare` database and writes `backend/.env`. It prompts for the PostgreSQL superuser password, so **the user runs it, not an agent**:
+The dev database is **`trailshare_dev`**. There is also an unrelated `trailshare` database on this machine, managed by Flyway and owned by another app — never point `DB_NAME` at it, because dev-mode `synchronize` would rewrite its schema.
+
+First-time setup creates `trailshare_dev` and writes `backend/.env`. It prompts for the PostgreSQL superuser password, so **the user runs it, not an agent**:
 
 ```powershell
 powershell -File scripts\setup-db.ps1
