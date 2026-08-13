@@ -18,11 +18,13 @@ Your actual code-writing is delegated to the **opencode CLI running Kimi K2**. Y
 
 ### 2. Delegate to Kimi K2 via opencode
 
-Run from the repo root, with the working directory set to `backend/` or `frontend/` as appropriate:
+Run with the working directory set to `backend/` or `frontend/` as appropriate:
 
 ```bash
-opencode run -m opencode-go/kimi-k2.7-code "<prompt>"
+opencode run --auto -m opencode-go/kimi-k2.7-code "<prompt>"
 ```
+
+**`--auto` is mandatory.** Without it opencode asks for permission before its first write, and in a non-interactive shell that prompt never gets an answer — the process sits at zero output until your timeout and touches nothing. A prompt that needs no tools (say, "reply PONG") still succeeds, so a passing smoke test does not prove the flag is unnecessary.
 
 The prompt you pass must be self-contained — Kimi has no access to this conversation. Include:
 - The exact files to create or edit, with full relative paths.

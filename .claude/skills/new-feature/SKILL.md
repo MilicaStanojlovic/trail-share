@@ -43,10 +43,9 @@ For each unchecked task **in order**, launch a fresh **implementor** agent with:
 - the exact task ID (e.g. `T4`),
 - a one-paragraph summary of what previous tasks actually produced (the implementor has no memory of earlier invocations).
 
-Run these **sequentially, never in parallel.** Two independent reasons, both observed in practice:
+Run these **sequentially, never in parallel** — every task shares one working tree, and concurrent agents clobber each other's edits. Buffered writes from a killed `opencode` can also land *after* an agent has given up and written the file itself, so overlapping runs produce genuinely confusing diffs.
 
-1. Every task shares one working tree, so concurrent agents clobber each other's edits.
-2. **Concurrent `opencode run` invocations hang.** Run serially it answers in a couple of minutes; run two or more at once and they sit at zero output until the timeout, and buffered writes can land *after* the agent gives up and writes the file itself. Parallelism does not speed this pipeline up — it converts it into a slower one that silently falls back to the orchestrating model.
+**If opencode hangs at zero output, the cause is almost always a missing `--auto` flag**, not load or concurrency: without it opencode waits forever for permission to write. See `.claude/agents/implementor.md`.
 
 The implementor delegates the code writing to Kimi K2 via `opencode run`, verifies it type-checks, and ticks the box. If it reports a task as blocked, resolve the blocker (usually a missing dependency or an ambiguous plan step) and re-run that task before moving on. Never advance past a blocked task.
 

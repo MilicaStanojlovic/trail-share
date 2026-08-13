@@ -117,7 +117,7 @@ Features are built with the **`new-feature`** skill, which sequences four role a
 | Role | Agent | Model | Does |
 |---|---|---|---|
 | Planner | `planner` | Fable | Reads the design, writes `plans/<feature>.md` — an API contract plus 8–20 checkbox tasks |
-| Implementor | `implementor` | delegates to **Kimi K2** via `opencode run -m opencode-go/kimi-k2.7-code` | Takes **one** task, implements it, verifies it type-checks, ticks it off |
+| Implementor | `implementor` | delegates to **Kimi K2** via `opencode run --auto -m opencode-go/kimi-k2.7-code` | Takes **one** task, implements it, verifies it type-checks, ticks it off |
 | Reviewer | `reviewer` | — | Read-only diff review: contract consistency, validation coverage, correctness, design fidelity |
 | Tester | `tester` | — | Runs the suites, then drives **Claude in Chrome** through the real user flow against the design |
 

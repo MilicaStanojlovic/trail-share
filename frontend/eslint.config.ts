@@ -20,4 +20,17 @@ export default defineConfigWithVueTs(
   vueTsConfigs.recommended,
 
   ...pluginOxlint.buildFromOxlintConfigFile('.oxlintrc.json'),
+
+  {
+    // Design-system primitives are named after the utility classes they wrap
+    // (`.tag` in design/styles.css), so their single-word names are deliberate
+    // and shared with the design vocabulary rather than accidental. Every other
+    // component keeps the multi-word rule. Add new primitives to this list only
+    // when the name comes straight from the design system.
+    name: 'app/design-system-primitives',
+    files: ['src/components/Tag.vue'],
+    rules: {
+      'vue/multi-word-component-names': 'off',
+    },
+  },
 )
