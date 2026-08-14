@@ -48,6 +48,16 @@ export class RoutesService {
     return rows.map((route) => this.toDto(route, counts.get(route.id) ?? 0));
   }
 
+  async findMine(authorId: string): Promise<RouteDto[]> {
+    const rows = await this.baseQuery()
+      .where('route.authorId = :authorId', { authorId })
+      .orderBy('route.createdAt', 'ASC')
+      .getMany();
+
+    const counts = await this.upcomingTourCounts(rows.map((r) => r.id));
+    return rows.map((route) => this.toDto(route, counts.get(route.id) ?? 0));
+  }
+
   async findById(id: string): Promise<RouteDto> {
     const route = await this.baseQuery()
       .where('route.id = :id', { id })

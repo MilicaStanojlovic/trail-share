@@ -78,6 +78,16 @@ export class ToursService {
     return this.decorateOne(tour, viewer);
   }
 
+  // Upcoming only, like every other tour list: the dashboard and My tours both
+  // describe tours still on the calendar.
+  async findMine(guide: AuthUser): Promise<TourDto[]> {
+    const rows = await this.upcomingQuery()
+      .andWhere('tour.guideId = :guideId', { guideId: guide.id })
+      .getMany();
+
+    return this.decorateMany(rows, guide);
+  }
+
   async findForRoute(routeId: string, viewer?: AuthUser): Promise<TourDto[]> {
     await this.assertRouteExists(routeId);
 

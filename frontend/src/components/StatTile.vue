@@ -33,6 +33,9 @@ const valueStyle = computed(() => {
   }
   return {
     fontFamily: 'var(--font-heading)',
+    // The design sets this explicitly on the stat value; without it the value
+    // inherits body's 1.55 and every tile stands ~12px taller than the design.
+    lineHeight: '1.15',
     ...map[props.size],
   }
 })

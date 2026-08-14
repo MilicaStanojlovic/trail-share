@@ -34,6 +34,14 @@ export class RoutesController {
     return this.routesService.findAll(query);
   }
 
+  // No role guard: any authenticated user may publish routes, so any of them may
+  // list their own. Declared before the :id route so "mine" is never read as an id.
+  @Get('mine')
+  @UseGuards(JwtAuthGuard)
+  mine(@CurrentUser() user: AuthUser): Promise<RouteDto[]> {
+    return this.routesService.findMine(user.id);
+  }
+
   @Get(':id')
   detail(@Param('id', ParseUUIDPipe) id: string): Promise<RouteDto> {
     return this.routesService.findById(id);

@@ -1,12 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AppLayout from '@/layouts/AppLayout.vue'
-import PlaceholderView from '@/views/PlaceholderView.vue'
 import DiscoverView from '@/views/DiscoverView.vue'
 import ToursView from '@/views/ToursView.vue'
 import TourDetailView from '@/views/TourDetailView.vue'
 import MyBookingsView from '@/views/MyBookingsView.vue'
 import RouteDetailView from '@/views/RouteDetailView.vue'
 import DrawRouteView from '@/views/DrawRouteView.vue'
+import DashboardView from '@/views/DashboardView.vue'
 import AuthView from '@/views/AuthView.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -27,7 +27,7 @@ const router = createRouter({
         {
           path: '/dashboard',
           name: 'dashboard',
-          component: PlaceholderView,
+          component: DashboardView,
           meta: { guideOnly: true },
         },
         { path: '/routes/new', name: 'draw', component: DrawRouteView },

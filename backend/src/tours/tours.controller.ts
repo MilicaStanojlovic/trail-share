@@ -7,7 +7,10 @@ import {
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/auth-user';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { OptionalAuthGuard } from '../auth/optional-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import type { TourDto } from './dto/tour-dto';
 import { ToursService } from './tours.service';
 
@@ -24,7 +27,15 @@ export class ToursController {
     return this.toursService.findUpcoming(user);
   }
 
-  // A later slice adding GET /tours/mine must declare it before this wildcard route.
+  // The guide's own upcoming tours, for the dashboard and My tours. Declared
+  // before the :id route so "mine" is never read as an id.
+  @Get('mine')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('GUIDE')
+  mine(@CurrentUser() user: AuthUser): Promise<TourDto[]> {
+    return this.toursService.findMine(user);
+  }
+
   @Get(':id')
   @UseGuards(OptionalAuthGuard)
   detail(

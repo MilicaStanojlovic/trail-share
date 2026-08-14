@@ -397,6 +397,61 @@ describe('ToursService', () => {
     });
   });
 
+  describe('findMine', () => {
+    it('applies the upcoming predicate and filters by the calling guide', async () => {
+      queryBuilderMock.getMany.mockResolvedValue([]);
+
+      await service.findMine(guideViewer);
+
+      // The upcoming predicate arrives from upcomingQuery as a single string,
+      // the guide filter as a separate parameterised andWhere.
+      expect(queryBuilderMock.where).toHaveBeenCalledWith(
+        'tour.date >= CURRENT_DATE',
+      );
+      expect(queryBuilderMock.andWhere).toHaveBeenCalledWith(
+        'tour.guideId = :guideId',
+        { guideId: guideViewer.id },
+      );
+      expect(queryBuilderMock.orderBy).toHaveBeenCalledWith('tour.date', 'ASC');
+    });
+
+    it('returns decorated tour DTOs with no roster key', async () => {
+      const tourA: Tour = { ...tour, id: 'tour-a' };
+      const tourB: Tour = { ...tour, id: 'tour-b' };
+
+      queryBuilderMock.getMany.mockResolvedValue([tourA, tourB]);
+      queryBuilderMock.getRawMany.mockResolvedValue([
+        { guideId: guide.id, count: '4' },
+      ]);
+
+      const result = await service.findMine(guideViewer);
+
+      expect(result).toHaveLength(2);
+      for (const dto of result) {
+        expect(dto).not.toHaveProperty('roster');
+        expect(dto.guide.toursLed).toBe(4);
+        expect(dto.guide).not.toHaveProperty('passwordHash');
+        expect(dto.startTime).toBe('08:00');
+        expect(dto.seatsLeft).toBe(tour.capacity - tour.bookedCount);
+        expect(dto.isFull).toBe(false);
+      }
+      expect(result[0].id).toBe(tourA.id);
+      expect(result[1].id).toBe(tourB.id);
+    });
+
+    it('returns an empty array when the guide has no upcoming tours', async () => {
+      queryBuilderMock.getMany.mockResolvedValue([]);
+
+      const result = await service.findMine(guideViewer);
+
+      expect(result).toEqual([]);
+      // Only the list query runs: the grouped count and the bookings lookup
+      // both short-circuit on empty id lists.
+      expect(toursRepositoryMock.createQueryBuilder).toHaveBeenCalledTimes(1);
+      expect(bookingsRepositoryMock.find).not.toHaveBeenCalled();
+    });
+  });
+
   describe('viewer-aware decoration', () => {
     it('findUpcoming marks only the tours booked by the viewer', async () => {
       const guideB: User = {

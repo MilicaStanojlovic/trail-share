@@ -425,4 +425,66 @@ describe('RoutesService', () => {
       expect(toursRepositoryMock.createQueryBuilder).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('findMine', () => {
+    it('filters by the author id and orders by createdAt ASC', async () => {
+      queryBuilderMock.getMany.mockResolvedValue([]);
+
+      await service.findMine(author.id);
+
+      expect(queryBuilderMock.where).toHaveBeenCalledWith(
+        'route.authorId = :authorId',
+        { authorId: author.id },
+      );
+      expect(queryBuilderMock.orderBy).toHaveBeenCalledWith(
+        'route.createdAt',
+        'ASC',
+      );
+      expect(queryBuilderMock.andWhere).not.toHaveBeenCalled();
+      expect(queryBuilderMock.addOrderBy).not.toHaveBeenCalled();
+    });
+
+    it('returns decorated DTOs with the tour count from the grouped query', async () => {
+      const routeA: Route = {
+        ...route,
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      };
+      const routeB: Route = {
+        ...route,
+        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      };
+      queryBuilderMock.getMany.mockResolvedValue([routeA, routeB]);
+      tourQueryBuilderMock.getRawMany.mockResolvedValue([
+        { routeId: routeB.id, count: '3' },
+      ]);
+
+      const result = await service.findMine(author.id);
+
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe(routeA.id);
+      expect(result[0].tourCount).toBe(0);
+      expect(result[1].id).toBe(routeB.id);
+      expect(result[1].tourCount).toBe(3);
+
+      expect(result[0].waypointCount).toBe(8);
+      expect(result[0].distanceLabel).toBe('7.5 km');
+      expect(result[0].author).toEqual({
+        id: author.id,
+        displayName: author.displayName,
+      });
+      expect(result[0].author).not.toHaveProperty('passwordHash');
+      expect(toursRepositoryMock.createQueryBuilder).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns an empty array when the author has no routes', async () => {
+      queryBuilderMock.getMany.mockResolvedValue([]);
+
+      const result = await service.findMine(
+        '33333333-3333-4333-8333-333333333333',
+      );
+
+      expect(result).toEqual([]);
+      expect(toursRepositoryMock.createQueryBuilder).not.toHaveBeenCalled();
+    });
+  });
 });

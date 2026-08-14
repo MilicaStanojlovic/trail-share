@@ -46,10 +46,13 @@ async function load(id: string): Promise<void> {
   }
 
   // A tour-list failure must never bounce the user off a route that loaded fine.
+  // It must still say so, though: the empty list renders "No tours scheduled on
+  // this route yet.", which would turn a failed request into a false claim and
+  // could have a guide schedule a duplicate tour on a date they already cover.
   try {
     await toursStore.fetchRouteTours(id)
   } catch {
-    // no-op
+    toastStore.show('Could not load tours for this route')
   }
 }
 

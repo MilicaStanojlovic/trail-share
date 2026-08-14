@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBookingsStore } from '@/stores/bookings'
+import { useToursStore } from '@/stores/tours'
 import { useToastStore } from '@/stores/toast'
 import { formatDateLong } from '@/lib/dates'
 import DataTable from '@/components/DataTable.vue'
@@ -14,6 +15,7 @@ import type { BookingStatus } from '@/types/domain'
 const router = useRouter()
 const authStore = useAuthStore()
 const bookingsStore = useBookingsStore()
+const toursStore = useToursStore()
 const toastStore = useToastStore()
 
 // DataTable is generic over Record<string, unknown>, so the row type has to
@@ -55,10 +57,45 @@ function statusLabel(status: BookingStatus): string {
   return status === 'PAID' ? 'Paid' : 'Confirmed'
 }
 
+// --- guide variant: the tours this guide scheduled ---
+
+interface TourRow extends Record<string, unknown> {
+  id: string
+  route: string
+  date: string
+  seats: string
+  isFull: boolean
+}
+
+const tourColumns = [
+  { key: 'route', label: 'Route' },
+  { key: 'date', label: 'Date' },
+  { key: 'seats', label: 'Seats' },
+  { key: 'status', label: 'Status' },
+  { key: 'action', label: '', align: 'right' as const },
+]
+
+const tourRows = computed<TourRow[]>(() =>
+  toursStore.mine.map((t) => ({
+    id: t.id,
+    route: t.route.name,
+    date: formatDateLong(t.date),
+    seats: t.bookedCount + ' / ' + t.capacity + ' booked',
+    isFull: t.isFull,
+  })),
+)
+
+const showToursEmpty = computed(() => !toursStore.loading && tourRows.value.length === 0)
+
 onMounted(async () => {
-  // Guides get the placeholder variant this slice, and GET /bookings/mine would
-  // only ever answer [] for them, so it is not called at all.
-  if (authStore.isGuide) return
+  if (authStore.isGuide) {
+    try {
+      await toursStore.fetchMine()
+    } catch {
+      toastStore.show('Could not load your tours')
+    }
+    return
+  }
 
   try {
     await bookingsStore.fetchMine()
@@ -70,15 +107,28 @@ onMounted(async () => {
 
 <template>
   <div style="padding: 26px 32px 56px; max-width: 1060px; animation: ts-rise 0.35s ease both">
-    <!-- The guide variant is deliberately minimal: the real table of tours a
-         guide scheduled belongs to the guide dashboard slice. -->
     <template v-if="authStore.isGuide">
       <h2 style="margin-bottom: 4px">My tours</h2>
       <p style="margin: 0 0 24px; opacity: 0.7; font-size: 14px">
         Tours you scheduled, and how they are filling up.
       </p>
 
-      <div style="margin-top: 20px">
+      <!-- The header row renders even with zero tours, as in the design. -->
+      <DataTable :columns="tourColumns" :rows="tourRows">
+        <template #cell-route="{ row }: { row: TourRow }">
+          <span style="font-weight: 600">{{ row.route }}</span>
+        </template>
+        <template #cell-status="{ row }: { row: TourRow }">
+          <Tag :variant="row.isFull ? 'accent' : 'accent-2'">{{ row.isFull ? 'Full' : 'Open' }}</Tag>
+        </template>
+        <template #cell-action="{ row }: { row: TourRow }">
+          <AppButton variant="ghost" @click="router.push('/tours/' + row.id)">
+            Manage
+          </AppButton>
+        </template>
+      </DataTable>
+
+      <div v-if="showToursEmpty" style="margin-top: 20px">
         <EmptyState message="Nothing here yet." cta-label="Browse tours" @cta="router.push('/tours')" />
       </div>
     </template>
