@@ -23,11 +23,19 @@ export async function createE2eContext(): Promise<E2eContext> {
 
   // AppModule reads connection settings from env via ConfigService, so pointing
   // the env at the container is enough to redirect the whole app.
-  process.env.DB_HOST = container.getHost();
-  process.env.DB_PORT = String(container.getPort());
-  process.env.DB_USER = container.getUsername();
-  process.env.DB_PASSWORD = container.getPassword();
-  process.env.DB_NAME = container.getDatabase();
+  //
+  // This assignment is a safety barrier, not just configuration. AppModule
+  // calls ConfigModule.forRoot(), which loads backend/.env — and that file
+  // points at the live Supabase database. Left to itself, this suite would run
+  // 77 destructive specs against production data.
+  //
+  // Setting the variable here is what prevents it: dotenv never overwrites a
+  // variable that is already present in process.env, so the container URL wins
+  // over the one in .env. Deleting process.env.DATABASE_URL instead would not
+  // work — dotenv runs later, inside the AppModule import below, and would
+  // simply put the Supabase value back.
+  process.env.DATABASE_URL = container.getConnectionUri();
+  process.env.DB_SSL = 'disable';
   process.env.NODE_ENV = 'test';
 
   const moduleRef = await Test.createTestingModule({

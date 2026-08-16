@@ -13,8 +13,7 @@ Check these before starting; fix or report anything missing.
 
 | Requirement | Check |
 |---|---|
-| PostgreSQL running | `Get-Service postgresql-x64-16` → `Running` |
-| `trailshare` database exists | `psql -U postgres -c "\l"` (or the backend starts without a DB error) |
+| Supabase reachable | `backend/.env` has `DATABASE_URL` and `DB_SSL`, and the backend starts without a DB error |
 | Design access | `DesignSync` `list_files` on project `b5b8b913-1ab6-424e-94b6-b0841637a0d1` |
 | Docker Desktop | Only needed for `npm run test:e2e` — the tester starts it on demand |
 

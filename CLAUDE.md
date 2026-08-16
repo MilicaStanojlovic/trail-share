@@ -40,9 +40,22 @@ plans/            one checklist file per feature — the multiagent pipeline's s
 
 ## Running and testing
 
-Postgres runs as a **local Windows service** (`postgresql-x64-16`) — there is no Docker container for the dev database. Docker is needed only for the Testcontainers e2e suite.
+The database is **hosted on Supabase** — there is no local Postgres to start. Docker is still needed for the Testcontainers e2e suite, which runs against a throwaway local container and never touches Supabase.
 
-The dev database is **`trailshare_dev`**. Do not point this project at the `trailshare` database on this machine: it belongs to an unrelated Flyway-managed app, and this project's migrations would run against its tables. `scripts/setup-db.ps1` creates `trailshare_dev` and refuses to adopt a database containing tables this project does not own.
+Supabase is used as **hosted Postgres and nothing else**: no `supabase-js`, no Supabase Auth, no Row Level Security, no Storage, Realtime or Edge Functions. Authentication is this project's own JWT and bcrypt code in `backend/src/auth/`, and all access goes through the NestJS API. Nothing in the app knows it is talking to Supabase rather than any other Postgres — which is why pointing `DATABASE_URL` at a local database still works, and is exactly what the e2e suite does on every run.
+
+`src/database/no-supabase-sdk.spec.ts` enforces this: it fails if any `supabase`/`postgrest`/`gotrue` package appears in either `package.json`, or if `bcryptjs` and `@nestjs/jwt` stop being backend dependencies. If the boundary is ever moved deliberately, change that test and this paragraph in the same commit — the point is that the decision gets written down rather than merely happening.
+
+Connect with the **session pooler** string (port `5432`, user `postgres.<project-ref>`) from the dashboard's Connect dialog, in `backend/.env` as `DATABASE_URL` plus a `DB_SSL` mode. See `backend/.env.example`.
+
+Supabase serves a certificate from its own *Supabase Intermediate 2021 CA*, which is not in Node's trust store, so `DB_SSL=require` alone fails with `SELF_SIGNED_CERT_IN_CHAIN`. Either point `DB_SSL_CA` at the certificate from Settings → Database → SSL Configuration and keep `require` (encrypted **and** authenticated), or use `DB_SSL=no-verify` (encrypted only, no protection against a man in the middle).
+
+Two more ways to get the connection wrong:
+
+- The **transaction pooler** (port `6543`) does not support prepared statements, which TypeORM relies on.
+- The **direct connection** (`db.<project-ref>.supabase.co`) is IPv6-only without the paid IPv4 add-on, so it may simply time out.
+
+A free-tier project pauses after about a week idle; the first request afterwards fails or hangs while it wakes. That is not a bug in the app.
 
 See the **`run`** skill to start the stack and the **`test`** skill for the suites. In short: `cd backend && npm run start:dev`, `cd frontend && npm run dev`, and pre-merge `npm run lint && npm test && npm run test:e2e` in `backend/` plus `npm run type-check && npm run build` in `frontend/`.
 
@@ -65,9 +78,14 @@ Commit the migration in the same commit as the entity change. Other commands: `m
 
 Two things that bite:
 
-- **`migration:generate` diffs against your live database.** To generate a migration for a schema that already exists, point `DB_NAME` at a scratch empty database first, or the generator reports no changes.
+- **`migration:generate` diffs against your live database.** To generate a migration for a schema that already exists, point `DATABASE_URL` at an empty scratch database first, or the generator reports no changes.
 - **Adopting a database whose tables already exist** — the equivalent of Flyway's `baseline-on-migrate` — is `npm run migration:run -- --fake`. It writes the history row without executing the SQL. Only ever do this when you have confirmed the database already matches the migration.
 - **A new entity must be added to the `entities` array in `src/data-source.ts`.** The app finds entities through `autoLoadEntities`, but the CLI has no modules; if it cannot see an entity it will generate a migration that drops its table.
+- **Use `gen_random_uuid()`, never `uuid_generate_v4()`, for uuid defaults.** `gen_random_uuid()` is core Postgres since 13 and needs no extension. `uuid_generate_v4()` comes from `uuid-ossp`, which Supabase installs into the `extensions` schema — off the default `search_path`, so it fails with *"function uuid_generate_v4() does not exist"*. `uuidExtension: 'pgcrypto'` in `typeorm-options.ts` makes the generator emit the right one.
+
+### The e2e suite must never reach Supabase
+
+`test/postgres-testcontainer.ts` sets `process.env.DATABASE_URL` to its container's URL **before** importing `AppModule`. That is a safety barrier, not tidiness: `AppModule` calls `ConfigModule.forRoot()`, which loads `backend/.env` — the live Supabase credentials. dotenv does not overwrite an already-set variable, so the container wins. Deleting the variable instead does not work, because dotenv runs later and puts it back. Do not touch those two lines without re-checking Supabase row counts before and after a full `npm run test:e2e`.
 
 ## Design is the source of truth for all UI
 
