@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { DataSource } from 'typeorm';
-import { buildTypeOrmOptions } from './database/typeorm-options';
+import { buildTypeOrmOptions, parseSslMode } from './database/typeorm-options';
 import { Booking } from './bookings/booking.entity';
 import { Route } from './routes/route.entity';
 import { Tour } from './tours/tour.entity';
@@ -23,11 +23,9 @@ import { User } from './users/user.entity';
 // that exports more than one DataSource instance.
 const dataSource = new DataSource({
   ...buildTypeOrmOptions({
-    host: process.env.DB_HOST ?? 'localhost',
-    port: Number(process.env.DB_PORT ?? 5432),
-    user: process.env.DB_USER ?? 'postgres',
-    password: process.env.DB_PASSWORD ?? 'postgres',
-    name: process.env.DB_NAME ?? 'trailshare_dev',
+    url: process.env.DATABASE_URL,
+    ssl: parseSslMode(process.env.DB_SSL),
+    sslCaPath: process.env.DB_SSL_CA,
   }),
   entities: [User, Route, Tour, Booking],
 });

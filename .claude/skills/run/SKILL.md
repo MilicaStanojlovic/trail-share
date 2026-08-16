@@ -1,6 +1,6 @@
 ---
 name: run
-description: Start the TrailShare stack locally — the NestJS backend on :8086 and the Vue frontend on :5173 against the local PostgreSQL service. Use when asked to run, start, serve, or open the app, or to check a change in the real app.
+description: Start the TrailShare stack locally — the NestJS backend on :8086 and the Vue frontend on :5173 against the Supabase-hosted database. Use when asked to run, start, serve, or open the app, or to check a change in the real app.
 ---
 
 # Running TrailShare locally
@@ -11,26 +11,20 @@ description: Start the TrailShare stack locally — the NestJS backend on :8086 
 |---|---|---|
 | Backend (NestJS) | 8086 | http://localhost:8086/api |
 | Frontend (Vite) | 5173 | http://localhost:5173 |
-| PostgreSQL | 5432 | local Windows service `postgresql-x64-16` |
+| PostgreSQL | — | hosted on Supabase (session pooler, port 5432) |
 
 ## Database
 
-Postgres runs as a **local Windows service** — there is no Docker container for the dev database.
+The database is **hosted on Supabase**. There is nothing local to start and no service to check — if the backend boots, it connected.
 
-```powershell
-Get-Service postgresql-x64-16     # expect Status: Running
-Start-Service postgresql-x64-16   # if it is stopped
-```
+Credentials live in `backend/.env` as `DATABASE_URL` (the session pooler string) and `DB_SSL=require`. Copy `backend/.env.example` if the file is missing; it explains where to get the string. Docker is needed only for the Testcontainers e2e suite — see the `test` skill.
 
-Connection settings live in `backend/.env` (copy from `backend/.env.example` if it is missing). Docker is only needed for the Testcontainers e2e suite — see the `test` skill.
+The schema is applied by the migrations on boot, so there is no setup step: an empty Supabase project becomes a working one on the first `npm run start:dev`.
 
-The dev database is **`trailshare_dev`**. There is also an unrelated `trailshare` database on this machine, managed by Flyway and owned by another app — never point `DB_NAME` at it, because dev-mode `synchronize` would rewrite its schema.
+Two failure modes worth recognising before debugging anything else:
 
-First-time setup creates `trailshare_dev` and writes `backend/.env`. It prompts for the PostgreSQL superuser password, so **the user runs it, not an agent**:
-
-```powershell
-powershell -File scripts\setup-db.ps1
-```
+- **Hang or timeout on the first request after days of not using it** — a free-tier project pauses when idle. Retry; it wakes in a few seconds.
+- **`DATABASE_URL is not set`** — `backend/.env` is missing or the variable is empty. This error is deliberate; there is no localhost fallback to mask it.
 
 ## Start
 
