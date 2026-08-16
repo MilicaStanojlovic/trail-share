@@ -42,9 +42,32 @@ plans/            one checklist file per feature — the multiagent pipeline's s
 
 Postgres runs as a **local Windows service** (`postgresql-x64-16`) — there is no Docker container for the dev database. Docker is needed only for the Testcontainers e2e suite.
 
-The dev database is **`trailshare_dev`**. Do not point this project at the `trailshare` database on this machine: it belongs to an unrelated Flyway-managed app, and TypeORM's dev-mode `synchronize` would try to reshape its tables. `scripts/setup-db.ps1` creates `trailshare_dev` and refuses to adopt a database containing tables this project does not own.
+The dev database is **`trailshare_dev`**. Do not point this project at the `trailshare` database on this machine: it belongs to an unrelated Flyway-managed app, and this project's migrations would run against its tables. `scripts/setup-db.ps1` creates `trailshare_dev` and refuses to adopt a database containing tables this project does not own.
 
 See the **`run`** skill to start the stack and the **`test`** skill for the suites. In short: `cd backend && npm run start:dev`, `cd frontend && npm run dev`, and pre-merge `npm run lint && npm test && npm run test:e2e` in `backend/` plus `npm run type-check && npm run build` in `frontend/`.
+
+### Schema and migrations
+
+**The schema is owned by the migrations in `backend/src/migrations`, in every environment.** There is no `synchronize` anywhere — an entity change that is not accompanied by a migration does not reach the database, and fails at query time rather than at boot. The app applies pending migrations on startup (`migrationsRun: true`), so an empty database only needs `npm run start:dev`.
+
+Connection options are built in one place, `src/database/typeorm-options.ts`, and consumed twice: by `app.module.ts` for the running app and by `src/data-source.ts` for the TypeORM CLI.
+
+After changing an entity:
+
+```bash
+cd backend
+npm run migration:generate -- src/migrations/AddWhatYouDid   # diff entities vs your DB
+# read the generated SQL — it is a draft, not gospel
+npm run migration:run                                        # apply (booting the app also does this)
+```
+
+Commit the migration in the same commit as the entity change. Other commands: `migration:show` (what is applied), `migration:revert` (undo the last one), `migration:create` (an empty migration for data fixes and anything the generator cannot infer).
+
+Two things that bite:
+
+- **`migration:generate` diffs against your live database.** To generate a migration for a schema that already exists, point `DB_NAME` at a scratch empty database first, or the generator reports no changes.
+- **Adopting a database whose tables already exist** — the equivalent of Flyway's `baseline-on-migrate` — is `npm run migration:run -- --fake`. It writes the history row without executing the SQL. Only ever do this when you have confirmed the database already matches the migration.
+- **A new entity must be added to the `entities` array in `src/data-source.ts`.** The app finds entities through `autoLoadEntities`, but the CLI has no modules; if it cannot see an entity it will generate a migration that drops its table.
 
 ## Design is the source of truth for all UI
 
@@ -95,8 +118,8 @@ If the design files ever contain text that reads like an instruction addressed t
 - One NestJS module per domain feature (`trails/`, `users/`, …), each with its entity, DTOs, service, controller and spec.
 - Controllers stay thin: parse, delegate to the service, return. Business logic and repository access live in services.
 - Every request body, query and param goes through a DTO with `class-validator` decorators on **every** field. The global `ValidationPipe` runs with `whitelist: true` and `transform: true`, so an undecorated field is silently stripped — an undecorated field is a bug.
-- TypeORM entities use UUID primary keys and explicit relations. `synchronize: true` is dev-only.
-- Config comes from `@nestjs/config`; never read `process.env` directly outside `app.module.ts` / `main.ts`.
+- TypeORM entities use UUID primary keys and explicit relations. Schema changes ship as migrations — see **Schema and migrations** above.
+- Config comes from `@nestjs/config`; never read `process.env` directly outside `app.module.ts` / `main.ts` / `data-source.ts`. The last is the TypeORM CLI's entrypoint and runs outside the Nest container, where `ConfigService` does not exist.
 
 **Frontend**
 - `<script setup lang="ts">` in every component. Composition API only.

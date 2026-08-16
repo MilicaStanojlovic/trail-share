@@ -1,8 +1,8 @@
 # Creates the local dev database and writes backend/.env.
 #
 # The name is trailshare_dev, not trailshare: this machine already has an
-# unrelated `trailshare` database managed by Flyway, and TypeORM's dev-mode
-# synchronize would try to reshape its tables.
+# unrelated `trailshare` database managed by Flyway, and this project's own
+# migrations would run against its tables.
 #
 # Run this yourself in a terminal — it prompts for your PostgreSQL superuser
 # password, so it is not something an agent should run on your behalf:
@@ -11,6 +11,9 @@
 #
 # Re-running is safe: an existing database is left alone and .env is only
 # rewritten if you confirm.
+#
+# This script only creates the database. The schema is applied separately, by
+# the migrations — `cd backend && npm run start:dev` (or npm run migration:run).
 
 $ErrorActionPreference = 'Stop'
 
@@ -44,12 +47,15 @@ try {
 
     if ($exists -eq '1') {
         # Reusing a database someone else owns is how you lose their data:
-        # TypeORM runs with synchronize on in dev and will happily reshape a
-        # table it did not create. Only adopt a database that is empty or
-        # already ours.
+        # this project's migrations will happily ALTER a table they did not
+        # create. Only adopt a database that is empty or already ours.
+        #
+        # `migrations` is TypeORM's own history table — our equivalent of
+        # flyway_schema_history — so it belongs in this list. Leave it out and
+        # the script refuses to adopt the database it created itself.
         $foreign = & "$pgBin\psql.exe" -U $superuser -d $dbName -tAc @"
 SELECT count(*) FROM information_schema.tables
-WHERE table_schema = 'public' AND table_name NOT IN ('users','routes','waypoints','tours','bookings')
+WHERE table_schema = 'public' AND table_name NOT IN ('users','routes','waypoints','tours','bookings','migrations')
 "@
         # Fail closed. A native exe's failure does not trip $ErrorActionPreference,
         # so without this check a psql that could not connect leaves $foreign null,
