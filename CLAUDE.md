@@ -42,7 +42,9 @@ plans/            one checklist file per feature — the multiagent pipeline's s
 
 The database is **hosted on Supabase** — there is no local Postgres to start. Docker is still needed for the Testcontainers e2e suite, which runs against a throwaway local container and never touches Supabase.
 
-Supabase is used as **hosted Postgres and nothing else**: no `supabase-js`, no Supabase Auth, no Row Level Security. Authentication is this project's own JWT and bcrypt code in `backend/src/auth/`, and all access goes through the NestJS API. Nothing in the app knows it is talking to Supabase rather than any other Postgres.
+Supabase is used as **hosted Postgres and nothing else**: no `supabase-js`, no Supabase Auth, no Row Level Security, no Storage, Realtime or Edge Functions. Authentication is this project's own JWT and bcrypt code in `backend/src/auth/`, and all access goes through the NestJS API. Nothing in the app knows it is talking to Supabase rather than any other Postgres — which is why pointing `DATABASE_URL` at a local database still works, and is exactly what the e2e suite does on every run.
+
+`src/database/no-supabase-sdk.spec.ts` enforces this: it fails if any `supabase`/`postgrest`/`gotrue` package appears in either `package.json`, or if `bcryptjs` and `@nestjs/jwt` stop being backend dependencies. If the boundary is ever moved deliberately, change that test and this paragraph in the same commit — the point is that the decision gets written down rather than merely happening.
 
 Connect with the **session pooler** string (port `5432`, user `postgres.<project-ref>`) from the dashboard's Connect dialog, in `backend/.env` as `DATABASE_URL` plus a `DB_SSL` mode. See `backend/.env.example`.
 
