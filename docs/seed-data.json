@@ -1,0 +1,142 @@
+{
+  "_comment": "Seed fixtures lifted verbatim from design/TrailShare.dc.html (ROUTES and TOURS arrays). Backend seeders and e2e fixtures should use these so the running app matches the design's screenshots. Coordinates are [lat, lng]. Users are derived from the author/guide names.",
+
+  "users": [
+    { "displayName": "Ivana Kovač", "email": "ivana@trailshare.hr", "role": "GUIDE" },
+    { "displayName": "Marko Babić", "email": "marko@trailshare.hr", "role": "GUIDE" },
+    { "displayName": "Petra Novak", "email": "petra@trailshare.hr", "role": "GUIDE" },
+    { "displayName": "Luka Horvat", "email": "luka@trailshare.hr", "role": "HIKER" },
+    { "displayName": "Ana Perić", "email": "ana@trailshare.hr", "role": "HIKER" },
+    { "displayName": "Tomislav Rukavina", "email": "tomislav@trailshare.hr", "role": "HIKER" },
+    { "displayName": "Maja Šimić", "email": "maja@trailshare.hr", "role": "HIKER" },
+    { "displayName": "Filip Barišić", "email": "filip@trailshare.hr", "role": "HIKER" },
+    { "displayName": "Nina Vuković", "email": "nina@trailshare.hr", "role": "HIKER" },
+    { "displayName": "Dario Klarić", "email": "dario@trailshare.hr", "role": "HIKER" },
+    { "displayName": "Sara Jurić", "email": "sara@trailshare.hr", "role": "HIKER" }
+  ],
+
+  "routes": [
+    {
+      "id": 1,
+      "name": "Medvednica Ridge Loop",
+      "difficulty": "Moderate",
+      "activity": "Hiking",
+      "author": "Ivana Kovač",
+      "description": "A steady climb through beech forest onto the ridge, then an easy return along the old logging road.",
+      "waypoints": [[45.9002, 15.9432], [45.9068, 15.9508], [45.9121, 15.9601], [45.9155, 15.9723], [45.9098, 15.9805], [45.9012, 15.9748], [45.8961, 15.9612], [45.9002, 15.9432]]
+    },
+    {
+      "id": 2,
+      "name": "Sljeme Summit Climb",
+      "difficulty": "Hard",
+      "activity": "Hiking",
+      "author": "Marko Babić",
+      "description": "The direct line to the summit. Relentless for the first hour, rewarded with the whole Zagreb basin below.",
+      "waypoints": [[45.889, 15.956], [45.8952, 15.9612], [45.9008, 15.9668], [45.9063, 15.9712], [45.911, 15.9769]]
+    },
+    {
+      "id": 3,
+      "name": "Sava Riverside Cruise",
+      "difficulty": "Easy",
+      "activity": "Biking",
+      "author": "Ivana Kovač",
+      "description": "Flat, fast and shaded most of the way. A good first ride for anyone new to longer distances.",
+      "waypoints": [[45.781, 15.92], [45.7795, 15.945], [45.7802, 15.976], [45.783, 16.01], [45.7868, 16.04]]
+    },
+    {
+      "id": 4,
+      "name": "Samobor Hills Traverse",
+      "difficulty": "Moderate",
+      "activity": "Biking",
+      "author": "Petra Novak",
+      "description": "Rolling gravel between vineyards with three short punchy climbs and a bakery stop at the halfway point.",
+      "waypoints": [[45.802, 15.71], [45.809, 15.725], [45.816, 15.742], [45.8215, 15.7601], [45.828, 15.776]]
+    },
+    {
+      "id": 5,
+      "name": "Jarun Lake Circuit",
+      "difficulty": "Easy",
+      "activity": "Hiking",
+      "author": "Ivana Kovač",
+      "description": "One lap of the lake on packed gravel. Pushchair-friendly, and never more than ten minutes from a bench.",
+      "waypoints": [[45.783, 15.913], [45.7845, 15.921], [45.7838, 15.9295], [45.7805, 15.927], [45.7802, 15.9175], [45.783, 15.913]]
+    },
+    {
+      "id": 6,
+      "name": "Zelenjak Gorge Trail",
+      "difficulty": "Hard",
+      "activity": "Hiking",
+      "author": "Marko Babić",
+      "description": "Exposed scrambling above the Sutla river. Do not attempt in the wet — the limestone turns to glass.",
+      "waypoints": [[46.08, 15.73], [46.087, 15.741], [46.094, 15.752], [46.101, 15.76]]
+    }
+  ],
+
+  "tours": [
+    {
+      "id": 1,
+      "routeId": 1,
+      "guide": "Ivana Kovač",
+      "date": "2026-08-22",
+      "startTime": "08:00",
+      "designTimeRange": "08:00 – 12:30",
+      "capacity": 12,
+      "booked": 9,
+      "meetingPoint": "Bliznec parking lot",
+      "pace": "Relaxed, 3.5 km/h",
+      "notes": "Layered clothing and 1.5 L of water. We break for 20 minutes at the ridge shelter."
+    },
+    {
+      "id": 2,
+      "routeId": 2,
+      "guide": "Marko Babić",
+      "date": "2026-08-29",
+      "startTime": "07:30",
+      "designTimeRange": "07:30 – 11:20",
+      "capacity": 8,
+      "booked": 8,
+      "meetingPoint": "Gračanski dolac tram stop",
+      "pace": "Brisk, 4.5 km/h",
+      "notes": "Fitness required — 880 m of gain with no easy bail-out. Poles strongly recommended."
+    },
+    {
+      "id": 3,
+      "routeId": 3,
+      "guide": "Ivana Kovač",
+      "date": "2026-09-05",
+      "startTime": "09:00",
+      "designTimeRange": "09:00 – 10:45",
+      "capacity": 20,
+      "booked": 6,
+      "meetingPoint": "Jarun bridge, east side",
+      "pace": "Social, 16 km/h",
+      "notes": "Any bike in working order is fine. Helmets required, spare tubes provided."
+    },
+    {
+      "id": 4,
+      "routeId": 4,
+      "guide": "Petra Novak",
+      "date": "2026-09-12",
+      "startTime": "08:30",
+      "designTimeRange": "08:30 – 13:00",
+      "capacity": 10,
+      "booked": 4,
+      "meetingPoint": "Samobor main square",
+      "pace": "Moderate, 14 km/h",
+      "notes": "Gravel tyres or a hardtail. Two cafés on route, bring cash for the bakery."
+    },
+    {
+      "id": 5,
+      "routeId": 1,
+      "guide": "Ivana Kovač",
+      "date": "2026-09-19",
+      "startTime": "09:00",
+      "designTimeRange": "09:00 – 13:30",
+      "capacity": 12,
+      "booked": 2,
+      "meetingPoint": "Bliznec parking lot",
+      "pace": "Relaxed, 3.5 km/h",
+      "notes": "Autumn colours edition — slower pace, more photo stops."
+    }
+  ]
+}
