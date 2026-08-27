@@ -127,3 +127,29 @@ export interface GuideDashboard {
   routesPublished: number
   rating: GuideRating
 }
+
+export interface ProfileRating {
+  value: number
+  count: number
+}
+
+export interface ProfileStats {
+  routesPublished: number
+  // Every tour this user leads, past ones included, so it matches the
+  // toursLed on their tour-detail guide card. 0 for a hiker.
+  toursLed: number
+  seatsHosted: number
+  toursBooked: number
+  upcomingBookings: number
+  // Guides only; null for a hiker.
+  rating: ProfileRating | null
+}
+
+export interface Profile {
+  id: string
+  displayName: string
+  email: string
+  role: Role
+  createdAt: string
+  stats: ProfileStats
+}

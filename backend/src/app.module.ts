@@ -10,6 +10,7 @@ import { RoutesModule } from './routes/routes.module';
 import { ToursModule } from './tours/tours.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { GuideModule } from './guide/guide.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { GuideModule } from './guide/guide.module';
     ToursModule,
     BookingsModule,
     GuideModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [AppService],
