@@ -28,7 +28,14 @@ const routes = useRoutesStore()
 const toast = useToastStore()
 const router = useRouter()
 
-const featured = computed(() => routes.list[0] ?? null)
+// The design features whichever route comes first; this app names the one it
+// wants, because the seeder is create-only — a route added to an already
+// seeded database gets today's createdAt and sorts last, not first. Falls
+// back to the first route so the hero still renders if it is ever unseeded.
+const FEATURED_ROUTE_NAME = 'Fruška Gora Ridge Trail'
+const featured = computed(
+  () => routes.list.find((r) => r.name === FEATURED_ROUTE_NAME) ?? routes.list[0] ?? null,
+)
 
 // The routes endpoint is public so the hero renders while signed out. If the
 // backend is down the right column simply stays surface-coloured while the

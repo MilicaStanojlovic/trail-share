@@ -32,13 +32,13 @@ describe('RoutesController (e2e)', () => {
     await destroyE2eContext(ctx);
   });
 
-  it('GET /api/routes returns 200 with an array of exactly 6 routes', async () => {
+  it('GET /api/routes returns 200 with an array of exactly 7 routes', async () => {
     const response = await request(ctx.app.getHttpServer() as App)
       .get('/api/routes')
       .expect(200);
 
     routes = response.body as RouteDto[];
-    expect(routes).toHaveLength(6);
+    expect(routes).toHaveLength(7);
     expect(routes[0].name).toBe('Medvednica Ridge Loop');
   });
 
@@ -166,6 +166,6 @@ describe('RoutesController (e2e)', () => {
       .expect(200);
 
     const body = response.body as RouteDto[];
-    expect(body).toHaveLength(6);
+    expect(body).toHaveLength(7);
   });
 });
