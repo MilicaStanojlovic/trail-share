@@ -300,11 +300,11 @@ const tableRows: KitRow[] = [
       <h3>Navigation</h3>
       <div class="text-muted">Hiker</div>
       <div class="nav-demo">
-        <AppNav role="HIKER" user-name="Ivana Kovač" @sign-out="toast.show('Signed out')" />
+        <AppNav role="HIKER" user-name="Ivana Kovač" />
       </div>
       <div class="text-muted">Guide</div>
       <div class="nav-demo">
-        <AppNav role="GUIDE" user-name="Marko Babić" @sign-out="toast.show('Signed out')" />
+        <AppNav role="GUIDE" user-name="Marko Babić" />
       </div>
     </section>
   </main>

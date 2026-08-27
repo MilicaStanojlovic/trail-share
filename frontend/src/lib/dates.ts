@@ -19,3 +19,13 @@ export function bookedAgoLabel(iso: string): string {
   }
   return 'booked ' + days + ' days ago'
 }
+
+// No T00:00:00 append, unlike formatDateLong: createdAt is a full ISO
+// timestamp, not a bare YYYY-MM-DD, so it already carries a zone.
+export function formatMemberSince(iso: string): string {
+  return new Date(iso).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+}

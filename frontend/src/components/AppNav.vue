@@ -16,10 +16,6 @@ const props = withDefaults(defineProps<Props>(), {
   userName: 'Ivana Kovač',
 })
 
-const emit = defineEmits<{
-  (e: 'sign-out'): void
-}>()
-
 const route = useRoute()
 const router = useRouter()
 
@@ -34,6 +30,7 @@ const routesCurrent = computed(() =>
 const toursCurrent = computed(() => (route.path.startsWith('/tours') ? 'page' : undefined))
 const mineCurrent = computed(() => (route.path === '/my' ? 'page' : undefined))
 const dashboardCurrent = computed(() => (route.path === '/dashboard' ? 'page' : undefined))
+const profileCurrent = computed(() => (route.path === '/profile' ? 'page' : undefined))
 
 function goDraw() {
   router.push('/routes/new')
@@ -69,29 +66,41 @@ function goDraw() {
 
     <div style="margin-left: auto; display: flex; align-items: center; gap: 14px">
       <AppButton @click="goDraw">＋ Draw a route</AppButton>
-      <!-- A button, not the design's bare div: signing out is a real action
-           and must be reachable by keyboard. Styling is stripped back so it
-           still renders as just the avatar. -->
-      <button
-        type="button"
-        title="Sign out"
-        aria-label="Sign out"
-        class="sign-out"
-        @click="emit('sign-out')"
+      <!-- The design makes this avatar the sign-out button. It links to the
+           profile instead: clicking your own face to log out is a surprising
+           affordance, and sign-out now lives on that page. A RouterLink rather
+           than the design's bare div so it is keyboard reachable; the styling
+           is stripped back so it still renders as just the avatar. -->
+      <RouterLink
+        to="/profile"
+        title="Your profile"
+        aria-label="Your profile"
+        class="avatar-link"
+        :aria-current="profileCurrent"
       >
         <AvatarInitials :name="userName" :size="34" bg="accent-2" />
-      </button>
+      </RouterLink>
     </div>
   </nav>
 </template>
 
 <style scoped>
-.sign-out {
+.avatar-link {
   display: flex;
   padding: 0;
   border: 0;
   background: none;
   cursor: pointer;
   border-radius: 999px;
+}
+
+/* `.nav a:hover` and `.nav a[aria-current]` recolour link text to accent,
+   which would tint the initials orange inside their sage circle. The avatar
+   keeps its own colour in every state; aria-current still carries the "you are
+   here" signal to assistive tech. */
+.avatar-link,
+.avatar-link:hover,
+.avatar-link[aria-current='page'] {
+  color: inherit;
 }
 </style>

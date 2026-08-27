@@ -66,7 +66,7 @@ Backend T2–T5 first, then frontend T6–T11, then the gate. Implementors run s
 - [x] **T1 — Branch and plan file**
   - `git checkout develop && git checkout -b feature/user-profile`; this file is the pipeline's shared state, per `CLAUDE.md`.
 
-- [ ] **T2 — Backend: profile DTO + service**
+- [x] **T2 — Backend: profile DTO + service**
   - Files: `backend/src/profile/dto/profile-dto.ts` (new), `backend/src/profile/profile.service.ts` (new)
   - DTO exports `ProfileRatingDto { value: number; count: number }`, `ProfileStatsDto` (the six keys above), `ProfileDto` (the five top-level keys). `ProfileService` injects `UsersService` (for `createdAt` — `findById` returns the entity, so hand-pick fields, never spread) plus `Repository<Route>`, `Repository<Tour>`, `Repository<Booking>`, and exposes `getProfile(user: AuthUser): Promise<ProfileDto>` built from three aggregate queries in the raw-query-builder style of `guide.service.ts:29-48`:
     1. `routes.count({ where: { authorId: user.id } })`
@@ -75,12 +75,12 @@ Backend T2–T5 first, then frontend T6–T11, then the gate. Implementors run s
     File-level `const RATING_STUB: ProfileRatingDto = { value: 4.9, count: 38 }` with the decision-8 comment. Throw `NotFoundException` if `findById` returns null (the guard already re-loads the user, so this is defensive).
   - Done when: `cd backend && npm run build` passes.
 
-- [ ] **T3 — Backend: controller + module wiring**
+- [x] **T3 — Backend: controller + module wiring**
   - Files: `backend/src/profile/profile.controller.ts` (new), `backend/src/profile/profile.module.ts` (new), `backend/src/app.module.ts` (edit)
   - `@Controller('profile')` with one `@Get()` guarded by `@UseGuards(JwtAuthGuard)`, taking `@CurrentUser() user: AuthUser`, returning `this.profileService.getProfile(user)`. `ProfileModule` imports `TypeOrmModule.forFeature([Route, Tour, Booking])` and `UsersModule` (decision 4 — copy the explanatory comment from `tours.module.ts:13-15`), declares the controller, provides `ProfileService`. Register `ProfileModule` in `app.module.ts`.
   - Done when: `npm run build` passes, `npm run start:dev` boots with no DI error, and `GET /api/profile` returns all six stat keys for a guide token and 401 with none.
 
-- [ ] **T4 — Backend: unit spec**
+- [x] **T4 — Backend: unit spec**
   - Files: `backend/src/profile/profile.service.spec.ts` (new)
   - Follow the repository/query-builder mock style of `guide.service.spec.ts`. Cases: (a) guide → all counters mapped, `rating` is the stub; (b) hiker → `rating` is `null` and `toursLed`/`seatsHosted` are `0`; (c) `SUM` returning `null` yields `0`, not `NaN`; (d) `passwordHash` never appears on the returned object (`expect(dto).not.toHaveProperty('passwordHash')`); (e) missing user → `NotFoundException`.
   - Done when: `npm test -- profile.service` passes.
@@ -89,33 +89,34 @@ Backend T2–T5 first, then frontend T6–T11, then the gate. Implementors run s
   - Files: `backend/test/profile.e2e-spec.ts` (new)
   - Using `createE2eContext` / `destroyE2eContext` from `test/postgres-testcontainer` and the register-then-act pattern of `test/guide-dashboard.e2e-spec.ts`: register a guide and a hiker; the guide publishes 2 routes and schedules 2 future tours; the hiker books one seat. Assert the guide's profile has `routesPublished: 2`, `toursLed: 2`, `seatsHosted: 1`, `toursBooked: 0`, `rating: { value: 4.9, count: 38 }`; the hiker's has `routesPublished: 0`, `toursLed: 0`, `seatsHosted: 0`, `toursBooked: 1`, `upcomingBookings: 1`, `rating: null`; `createdAt` parses as a date; no response body contains `passwordHash`; unauthenticated → 401.
   - Done when: `npm run test:e2e -- profile` passes (Docker required).
+  - **Status: written but NOT RUN — Docker is not installed on this machine, so Testcontainers cannot start. Run it before merging anywhere Docker is available.**
 
-- [ ] **T6 — Frontend: types + date helper**
+- [x] **T6 — Frontend: types + date helper**
   - Files: `frontend/src/types/domain.ts` (edit), `frontend/src/lib/dates.ts` (edit)
   - Add `ProfileRating`, `ProfileStats`, `Profile` interfaces — field-for-field the contract above. Add `export function formatMemberSince(iso: string): string` → `new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })` ("13 August 2026"). No `T00:00:00` append here: unlike `formatDateLong`'s bare `YYYY-MM-DD`, `createdAt` is a full timestamp — note that in a comment.
   - Done when: `cd frontend && npm run type-check` passes.
 
-- [ ] **T7 — Frontend: profile store**
+- [x] **T7 — Frontend: profile store**
   - Files: `frontend/src/stores/profile.ts` (new)
   - Setup-style store matching `stores/dashboard.ts`: `data = ref<Profile | null>(null)`, `loading = ref(false)`, `fetchProfile()` → `api.get<Profile>('/profile')` with `loading` in `try/finally`, and `reset()` (mandatory — every per-user store has one).
   - Done when: `npm run type-check` passes.
 
-- [ ] **T8 — Frontend: extract sign-out into a helper**
+- [x] **T8 — Frontend: extract sign-out into a helper**
   - Files: `frontend/src/lib/session.ts` (new), `frontend/src/layouts/AppLayout.vue` (edit)
   - Move `AppLayout.onSignOut`'s body verbatim into `export async function signOut(router: Router): Promise<void>` — `auth.logout()`, then `bookings/dashboard/routes/tours/profile.reset()`, `toast.show('Signed out')`, `router.push('/auth')`. Keep the existing comment explaining why every store must be reset. Add the new profile store to the reset list. `AppLayout` drops `onSignOut` and every store import it only used for that, and stops binding `@sign-out` on `AppNav`.
   - Done when: `npm run type-check && npm run build` pass and `grep -rn "sign-out" frontend/src` returns only `AppNav.vue` (removed in T9).
 
-- [ ] **T9 — Frontend: nav avatar links to the profile**
+- [x] **T9 — Frontend: nav avatar links to the profile**
   - Files: `frontend/src/components/AppNav.vue` (edit)
   - Replace the `<button class="sign-out">` wrapper with `<RouterLink to="/profile" class="avatar-link" title="Your profile" aria-label="Your profile" :aria-current="profileCurrent">` around the existing `<AvatarInitials :size="34" bg="accent-2" />`. Add `const profileCurrent = computed(() => (route.path === '/profile' ? 'page' : undefined))` alongside the four existing ones. Delete the now-unused `defineEmits` and rewrite the block comment to explain the new behaviour (decision 5). Rename the `.sign-out` scoped rule to `.avatar-link` and keep its declarations, since `.nav a` styling would otherwise underline/recolour the avatar.
   - Done when: `npm run type-check && npm run build` pass; the nav avatar navigates to `/profile` and is keyboard-reachable; the other four `aria-current` states are unchanged.
 
-- [ ] **T10 — Frontend: route**
+- [x] **T10 — Frontend: route**
   - Files: `frontend/src/router/index.ts` (edit)
   - Add `{ path: '/profile', name: 'profile', component: ProfileView }` as a child of the `/` `AppLayout` record. **No `meta`** — the global `beforeEach` is deny-by-default, so auth protection is automatic and `guideOnly` must not be set.
   - Done when: `npm run type-check` passes; `/profile` redirects to `/auth` when signed out.
 
-- [ ] **T11 — Frontend: `ProfileView.vue` + optional `TourCard` CTA**
+- [x] **T11 — Frontend: `ProfileView.vue` + optional `TourCard` CTA**
   - Files: `frontend/src/views/ProfileView.vue` (new), `frontend/src/components/TourCard.vue` (edit)
   - `TourCard`: add an optional `cta?: string` prop; `ctaLabel` returns `props.cta ?? <existing computed>`. Default behaviour is unchanged everywhere else — this exists so a guide's own tour does not offer them "Book a seat".
   - `ProfileView` wrapper: `padding: 26px 32px 56px; max-width: 1060px; animation: ts-rise .35s ease both` (identical to `MyBookingsView.vue:109`). Sections, each borrowing an existing pattern:
@@ -127,7 +128,7 @@ Backend T2–T5 first, then frontend T6–T11, then the gate. Implementors run s
     - `onMounted`: `Promise.all` of `profileStore.fetchProfile()`, `routesStore.fetchMine()`, and role-dependently `toursStore.fetchMine()` (guide) or `bookingsStore.fetchMine()` (hiker) — never `tours/mine` for a hiker, it is `@Roles('GUIDE')` and 403s. Wrap in `try/catch` → `toastStore.show('Could not load your profile')`.
   - Done when: `npm run type-check && npm run build` pass; signed in as `ivana@trailshare.hr` (`trailshare1`), `/profile` shows her name, email, `GUIDE`, member-since, four populated tiles, her 3 routes and her tours; as `luka@trailshare.hr` it shows the 3-tile hiker layout with no rating.
 
-- [ ] **T12 — Verification gate**
+- [x] **T12 — Verification gate** (e2e excepted, see T5)
   - Run `cd backend && npm run lint && npm test && npm run test:e2e` (Docker up) and `cd frontend && npm run type-check && npm run build`. Then with the stack running and seeded, walk the flow in Chrome per Verification below. Commit, push, merge to `develop` with `--no-ff`.
 
 ## Verification
