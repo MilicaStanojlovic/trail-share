@@ -118,8 +118,9 @@ export async function seedDatabase(dataSource: DataSource): Promise<{
     userByDisplayName.set(seedUser.displayName, user);
   }
 
-  // Insert routes sequentially so createdAt ascends in JSON order; this keeps
-  // Medvednica Ridge Loop the oldest route and therefore the featured one.
+  // Insert routes sequentially so createdAt ascends in JSON order, which is the
+  // order GET /api/routes returns and therefore the order Discover shows. The
+  // auth hero no longer depends on it: it picks its route by name.
   const routeByJsonId = new Map<number, Route>();
   for (const seedRoute of data.routes) {
     const existingRoute = await routeRepository.findOne({

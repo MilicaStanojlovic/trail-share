@@ -29,8 +29,10 @@ const filterModel = computed({
 
 const subline = computed(() => {
   // The TOTAL fetched count, never the filtered length — the design's header
-  // keeps saying "6 community routes" while the grid narrows.
-  return store.totalCount + ' community routes around Zagreb and the Medvednica hills.'
+  // keeps naming the full count while the grid narrows. The area wording is
+  // widened from the design's "around Zagreb and the Medvednica hills": the
+  // catalog now carries a Fruska Gora route too.
+  return store.totalCount + ' community routes across the region.'
 })
 
 function openRoute(id: string) {
