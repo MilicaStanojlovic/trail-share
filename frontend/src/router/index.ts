@@ -3,6 +3,7 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import DiscoverView from '@/views/DiscoverView.vue'
 import ToursView from '@/views/ToursView.vue'
 import TourDetailView from '@/views/TourDetailView.vue'
+import ProfileView from '@/views/ProfileView.vue'
 import MyBookingsView from '@/views/MyBookingsView.vue'
 import RouteDetailView from '@/views/RouteDetailView.vue'
 import DrawRouteView from '@/views/DrawRouteView.vue'
@@ -24,6 +25,9 @@ const router = createRouter({
         { path: '/tours', name: 'tours', component: ToursView },
         { path: '/tours/:id', name: 'tour-detail', component: TourDetailView },
         { path: '/my', name: 'my', component: MyBookingsView },
+        // No meta: the global guard is deny-by-default, so this is already
+        // authenticated-only, and every role has a profile.
+        { path: '/profile', name: 'profile', component: ProfileView },
         {
           path: '/dashboard',
           name: 'dashboard',

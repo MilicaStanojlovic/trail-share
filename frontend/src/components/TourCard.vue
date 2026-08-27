@@ -8,17 +8,21 @@ import AppButton from '@/components/AppButton.vue'
 import { difficultyTagVariant, seatTagState } from '@/types/ui'
 import type { Tour } from '@/types/domain'
 
-const props = defineProps<{ tour: Tour }>()
+// `cta` overrides the booking label. A guide looking at a tour they scheduled
+// must not be offered a seat on it.
+const props = defineProps<{ tour: Tour; cta?: string }>()
 const emit = defineEmits<{ (e: 'open'): void }>()
 
 const seat = computed(() => seatTagState(props.tour.bookedCount, props.tour.capacity, props.tour.isBookedByMe))
 
-const ctaLabel = computed(() =>
-  props.tour.isBookedByMe
-    ? 'Booked'
-    : props.tour.seatsLeft > 0
-      ? 'Book a seat'
-      : 'Join waitlist'
+const ctaLabel = computed(
+  () =>
+    props.cta ??
+    (props.tour.isBookedByMe
+      ? 'Booked'
+      : props.tour.seatsLeft > 0
+        ? 'Book a seat'
+        : 'Join waitlist')
 )
 
 function onCtaClick() {
