@@ -1,5 +1,5 @@
 {
-  "_comment": "Seed fixtures lifted verbatim from design/TrailShare.dc.html (ROUTES and TOURS arrays). Backend seeders and e2e fixtures should use these so the running app matches the design's screenshots. Coordinates are [lat, lng]. Users are derived from the author/guide names.",
+  "_comment": "Seed fixtures lifted verbatim from design/TrailShare.dc.html (ROUTES and TOURS arrays), plus route 7 (Fruska Gora Ridge Trail), which is NOT from the design - it was added so the auth screen features a Fruska Gora trail. See AuthView.vue's FEATURED_ROUTE_NAME. Backend seeders and e2e fixtures should use these so the running app matches the design's screenshots. Coordinates are [lat, lng]. Users are derived from the author/guide names.",
 
   "users": [
     { "displayName": "Ivana Kovač", "email": "ivana@trailshare.hr", "role": "GUIDE" },
@@ -69,6 +69,15 @@
       "author": "Marko Babić",
       "description": "Exposed scrambling above the Sutla river. Do not attempt in the wet — the limestone turns to glass.",
       "waypoints": [[46.08, 15.73], [46.087, 15.741], [46.094, 15.752], [46.101, 15.76]]
+    },
+    {
+      "id": 7,
+      "name": "Fruška Gora Ridge Trail",
+      "difficulty": "Moderate",
+      "activity": "Hiking",
+      "author": "Petra Novak",
+      "description": "The main ridge from Crveni Čot east to Stražilovo. Shaded by beech and lime almost the whole way, with the monasteries sitting just below the treeline.",
+      "waypoints": [[45.1544, 19.7269], [45.156, 19.762], [45.1595, 19.795], [45.1583, 19.8333], [45.162, 19.86], [45.1667, 19.8833]]
     }
   ],
 
