@@ -28,6 +28,7 @@ let group: L.LayerGroup | null = null
 let wpGroup: L.LayerGroup | null = null
 let dragging = false
 let lastShapeKey = ''
+let resizeObserver: ResizeObserver | null = null
 
 function currentPoints(): [number, number][] {
   return props.mode === 'draw' ? props.modelValue : props.coords
@@ -165,6 +166,12 @@ onMounted(() => {
 
   // The container is often still settling into its final size on mount.
   window.setTimeout(() => map?.invalidateSize(), 60)
+
+  // Responsive layouts resize the container long after mount — a breakpoint
+  // crossing or a phone rotation. Leaflet does not notice on its own and
+  // paints grey tiles at a stale centre until told.
+  resizeObserver = new ResizeObserver(() => map?.invalidateSize())
+  resizeObserver.observe(el.value)
 })
 
 watch(
@@ -174,6 +181,9 @@ watch(
 )
 
 onUnmounted(() => {
+  resizeObserver?.disconnect()
+  resizeObserver = null
+
   // Without this every hot reload leaks a live map instance.
   map?.remove()
   map = null
