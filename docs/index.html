@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TrailShare — draw the trail, bring people along</title>
+<meta name="description" content="TrailShare is a web app for drawing, sharing and discovering hiking trails. Sketch a route on a map, publish it, schedule a guided tour on it — or book a seat on someone else's. Vue 3 + NestJS + PostgreSQL.">
+<meta property="og:title" content="TrailShare">
+<meta property="og:description" content="Draw the trail. Bring people along. A Vue 3 + NestJS app for sketching hiking routes on a map, scheduling guided tours and booking a seat.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="assets/routes.png">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Caprasimo:wght@400&family=Figtree:wght@400;600;700&display=swap');
+
+/* ---- Design tokens, lifted from design/styles.css — the app's own system ---- */
+:root {
+  --color-bg: #f5ead8;
+  --color-surface: #ebddc5;
+  --color-text: #201e1d;
+  --color-accent: #c67139;
+  --color-accent-2: #7a8a5e;
+  --color-divider: color-mix(in srgb, #201e1d 16%, transparent);
+
+  --color-neutral-100: #f9f4ed;
+  --color-neutral-200: #eee7db;
+  --color-neutral-300: #dcd3c4;
+  --color-neutral-400: #c0b6a5;
+  --color-neutral-600: #82796a;
+  --color-neutral-800: #474238;
+  --color-neutral-900: #2e2b25;
+
+  --color-accent-100: #fff2eb;
+  --color-accent-200: #ffe1d0;
+  --color-accent-600: #b2622d;
+  --color-accent-700: #8c491a;
+  --color-accent-900: #402310;
+
+  --color-accent-2-100: #f0fae1;
+  --color-accent-2-200: #e1eecc;
+  --color-accent-2-600: #728157;
+  --color-accent-2-700: #56633f;
+  --color-accent-2-900: #272e1b;
+
+  --font-heading: "Caprasimo", Georgia, serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --space-1: 4.4px;  --space-2: 8.8px;  --space-3: 13.2px;
+  --space-4: 17.6px; --space-6: 26.4px; --space-8: 35.2px;
+
+  --radius-sm: 8px; --radius-md: 16px; --radius-lg: 28px;
+  --radius-card: calc(var(--radius-lg) * 1.15);
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2e2b25 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2e2b25 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2e2b25 22%, transparent);
+
+  --maxw: 1120px;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  margin: 0 0 var(--space-3);
+}
+h1 { font-size: clamp(38px, 6vw, 60px); }
+h2 { font-size: clamp(28px, 4vw, 38px); }
+h3 { font-size: 22px; }
+h4 { font-size: 18px; }
+p  { margin: 0 0 var(--space-3); }
+
+a { color: var(--color-accent); text-underline-offset: 3px; }
+a:hover { color: var(--color-accent-700); }
+
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; border-radius: 4px; }
+::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+
+code, kbd { font-family: var(--font-mono); font-size: 0.87em; }
+code {
+  overflow-wrap: anywhere;
+  background: var(--color-neutral-200);
+  border: 1px solid var(--color-divider);
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+
+.text-muted { color: color-mix(in srgb, var(--color-text) 58%, transparent); }
+
+.wrap { max-width: var(--maxw); margin-inline: auto; padding-inline: var(--space-6); }
+
+.kicker {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--color-accent-700);
+  margin: 0 0 var(--space-2);
+}
+
+/* ---- Header ---- */
+.site-head {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-divider);
+}
+.site-head .wrap {
+  display: flex; align-items: center; gap: var(--space-4);
+  min-height: 62px;
+}
+.brand {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-heading); font-size: 21px;
+  color: var(--color-text); text-decoration: none; flex: none;
+}
+.brand svg { display: block; }
+
+.nav {
+  display: flex; gap: 2px; align-items: center;
+  margin-left: auto; min-width: 0; overflow-x: auto; scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.nav::-webkit-scrollbar { display: none; }
+.nav a {
+  color: color-mix(in srgb, var(--color-text) 72%, transparent);
+  text-decoration: none; font-size: 14.5px; font-weight: 600;
+  padding: 7px 12px; border-radius: 999px; white-space: nowrap;
+}
+.nav a:hover { background: var(--color-surface); color: var(--color-text); }
+.nav a.is-active { color: var(--color-accent); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: 999px; border: 1px solid transparent;
+  padding: 10px 20px; font: inherit; font-weight: 700; font-size: 15px;
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+}
+.btn-primary { background: var(--color-accent); color: #fff8f1; box-shadow: var(--shadow-sm); }
+.btn-primary:hover { background: var(--color-accent-600); color: #fff8f1; }
+.btn-secondary {
+  background: transparent; color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-text) 30%, transparent);
+}
+.btn-secondary:hover { background: var(--color-surface); color: var(--color-text); }
+.btn-sm { padding: 7px 15px; font-size: 14px; }
+
+/* ---- Sections ---- */
+section { padding-block: clamp(48px, 7vw, 84px); scroll-margin-top: 74px; }
+section + section { border-top: 1px solid var(--color-divider); }
+.section-head { max-width: 62ch; margin-bottom: var(--space-8); }
+.section-head p { font-size: 17px; }
+
+/* ---- Hero ---- */
+.hero { padding-top: clamp(40px, 6vw, 72px); padding-bottom: clamp(40px, 6vw, 72px); border-top: 0; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: clamp(28px, 5vw, 60px); align-items: center; }
+.hero p.lede { font-size: 19px; max-width: 46ch; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-6); }
+.hero-meta { margin-top: var(--space-6); font-size: 14px; }
+
+.shot {
+  margin: 0;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.shot img { display: block; width: 100%; height: auto; }
+.shot figcaption {
+  padding: var(--space-4) var(--space-6) var(--space-6);
+  font-size: 14.5px; line-height: 1.55;
+  border-top: 1px solid var(--color-divider);
+}
+.shot figcaption b { font-weight: 700; }
+.shot figcaption .cap-note { display: block; margin-top: 6px; color: color-mix(in srgb, var(--color-text) 58%, transparent); }
+
+/* ---- Cards & grids ---- */
+.grid { display: grid; gap: var(--space-6); }
+.grid > * { min-width: 0; }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-card);
+  padding: var(--space-6);
+}
+.card h3, .card h4 { margin-bottom: var(--space-2); }
+.card p:last-child { margin-bottom: 0; }
+.card-icon {
+  width: 38px; height: 38px; border-radius: 999px;
+  display: grid; place-items: center; margin-bottom: var(--space-3);
+  background: var(--color-accent-2-200); color: var(--color-accent-2-700);
+}
+
+.tag {
+  display: inline-flex; align-items: center; border-radius: 999px;
+  padding: 5px 13px; font-size: 13px; font-weight: 600; line-height: 1.3;
+  border: 1px solid transparent;
+}
+.tag-accent   { background: var(--color-accent-200);   color: var(--color-accent-900); }
+.tag-accent-2 { background: var(--color-accent-2-200); color: var(--color-accent-2-900); }
+.tag-neutral  { background: var(--color-neutral-200);  color: var(--color-neutral-900); }
+.tag-outline  { background: transparent; border-color: var(--color-divider); }
+.tag-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* ---- Screens ---- */
+.shots { display: grid; gap: clamp(28px, 4vw, 44px); }
+.shots-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(24px, 3vw, 36px); }
+.shots-pair .shot img { object-fit: cover; }
+
+.notice {
+  margin-top: var(--space-8);
+  border-radius: var(--radius-md);
+  border: 1px dashed color-mix(in srgb, var(--color-text) 26%, transparent);
+  background: var(--color-neutral-100);
+  padding: var(--space-4) var(--space-6);
+  font-size: 14.5px;
+}
+.notice p:last-child { margin-bottom: 0; }
+
+/* ---- Architecture diagram ---- */
+.diagram {
+  background: var(--color-neutral-100);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-card);
+  padding: clamp(20px, 3vw, 32px);
+}
+.layer { border: 1px dashed color-mix(in srgb, var(--color-text) 24%, transparent); border-radius: var(--radius-md); padding: var(--space-4); }
+.layer + .layer { margin-top: 0; }
+.layer-label {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  margin-bottom: var(--space-3);
+}
+.nodes { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.node {
+  background: var(--color-surface); border: 1px solid var(--color-divider);
+  border-radius: 999px; padding: 7px 15px; font-size: 13.5px; font-weight: 600;
+  font-family: var(--font-mono);
+}
+.node-wide { border-radius: var(--radius-md); width: 100%; text-align: center; }
+.node-accent { background: var(--color-accent-200); border-color: color-mix(in srgb, var(--color-accent) 45%, transparent); color: var(--color-accent-900); }
+.node-green { background: var(--color-accent-2-200); border-color: color-mix(in srgb, var(--color-accent-2) 45%, transparent); color: var(--color-accent-2-900); }
+.node-outline { background: transparent; border-style: dashed; color: color-mix(in srgb, var(--color-text) 58%, transparent); font-weight: 400; }
+.flow-arrow {
+  display: block; text-align: center; font-size: 13px; line-height: 1.4;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  padding-block: var(--space-3);
+}
+.flow-arrow .arrow { display: block; font-size: 17px; color: var(--color-accent); }
+
+/* ---- Tables ---- */
+.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 640px; }
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--color-divider); vertical-align: top; }
+th {
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em;
+  font-weight: 700; color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--color-text) 28%, transparent);
+}
+td code { background: transparent; border: 0; padding: 0; font-weight: 600; }
+.method {
+  display: inline-block; min-width: 56px; text-align: center;
+  border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 700;
+  font-family: var(--font-mono); letter-spacing: 0.03em;
+}
+.m-get  { background: var(--color-accent-2-200); color: var(--color-accent-2-900); }
+.m-post { background: var(--color-accent-200);   color: var(--color-accent-900); }
+.m-del  { background: var(--color-neutral-300);  color: var(--color-neutral-900); }
+
+/* ---- Entities ---- */
+.entity { background: var(--color-surface); border: 1px solid var(--color-divider); border-radius: var(--radius-md); padding: var(--space-4) var(--space-6) var(--space-6); }
+.entity h4 { font-family: var(--font-mono); font-size: 15px; font-weight: 700; letter-spacing: 0; margin-bottom: var(--space-3); }
+.entity ul { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+.entity li { padding: 4px 0; border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent); display: flex; justify-content: space-between; gap: var(--space-3); }
+.entity li:last-child { border-bottom: 0; }
+.entity li span:last-child { font-family: var(--font-mono); font-size: 12.5px; color: color-mix(in srgb, var(--color-text) 58%, transparent); text-align: right; }
+
+/* ---- Code blocks ---- */
+pre {
+  margin: 0 0 var(--space-4);
+  max-width: 100%;
+  background: var(--color-neutral-900);
+  color: var(--color-neutral-200);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-6);
+  overflow-x: auto;
+  font-family: var(--font-mono); font-size: 13.5px; line-height: 1.7;
+}
+pre .c { color: var(--color-accent-300, #ffc6a5); }
+pre code { background: transparent; border: 0; padding: 0; color: inherit; font-size: inherit; }
+
+.steps { counter-reset: step; list-style: none; padding: 0; margin: 0; display: grid; gap: var(--space-6); }
+.steps > li { counter-increment: step; position: relative; padding-left: 46px; min-width: 0; }
+.steps > li::before {
+  content: counter(step);
+  position: absolute; left: 0; top: 0;
+  width: 30px; height: 30px; border-radius: 999px;
+  display: grid; place-items: center;
+  background: var(--color-accent); color: #fff8f1;
+  font-weight: 700; font-size: 14px;
+}
+.steps h4 { margin-bottom: var(--space-2); }
+
+.pipeline { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
+.pipe-step { background: var(--color-surface); border: 1px solid var(--color-divider); border-radius: var(--radius-md); padding: var(--space-4); }
+.pipe-step .n { font-family: var(--font-mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--color-accent-700); font-weight: 700; }
+.pipe-step h4 { margin: 6px 0 6px; font-size: 17px; }
+.pipe-step p { font-size: 14px; margin: 0; }
+
+/* ---- Footer ---- */
+.site-foot {
+  border-top: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  padding-block: var(--space-8);
+  font-size: 14px;
+}
+.site-foot .wrap { display: flex; flex-wrap: wrap; gap: var(--space-6); justify-content: space-between; align-items: flex-start; }
+.site-foot p { max-width: 56ch; }
+
+/* ---- Responsive ---- */
+@media (max-width: 980px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); }
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pipeline { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 860px) {
+  .grid-3, .grid-2, .shots-pair { grid-template-columns: minmax(0, 1fr); }
+  .wrap { padding-inline: var(--space-4); }
+  .brand span { display: none; }
+}
+@media (max-width: 560px) {
+  .grid-4 { grid-template-columns: minmax(0, 1fr); }
+  .pipeline { grid-template-columns: minmax(0, 1fr); }
+  body { font-size: 15.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+        <circle cx="13" cy="13" r="12" fill="#7a8a5e"/>
+        <path d="M13 1a12 12 0 0 1 0 24z" fill="#c67139"/>
+      </svg>
+      <span>TrailShare</span>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#overview">Overview</a>
+      <a href="#screens">Screens</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#api">API</a>
+      <a href="#run">Run it</a>
+      <a href="#build">How it was built</a>
+    </nav>
+    <a class="btn btn-secondary btn-sm" href="https://github.com/MilicaStanojlovic/trail-share">View on GitHub</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ================= HERO ================= -->
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <p class="kicker">Vue 3 · NestJS · PostgreSQL</p>
+        <h1>Draw the trail.<br>Bring people along.</h1>
+        <p class="lede">Sketch a route on the map, tag how hard it is, and publish. Guides schedule tours on it — hikers book a seat.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#screens">See the app</a>
+          <a class="btn btn-secondary" href="https://github.com/MilicaStanojlovic/trail-share">Source on GitHub</a>
+        </div>
+        <p class="hero-meta text-muted">A full-stack portfolio project: a Vue 3 single-page app on a NestJS REST API, backed by PostgreSQL and drawn on OpenStreetMap tiles with Leaflet.</p>
+      </div>
+      <figure class="shot">
+        <img src="assets/trail-.png" alt="TrailShare sign-in screen: the headline &quot;Draw the trail. Bring people along.&quot; beside a map of the Fruška Gora ridge with a route drawn on it." width="1946" height="867">
+      </figure>
+    </div>
+  </section>
+
+  <!-- ================= OVERVIEW ================= -->
+  <section id="overview">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="kicker">Overview</p>
+        <h2>What TrailShare does</h2>
+        <p>TrailShare is a web app for drawing, sharing and discovering hiking and biking routes. Everything starts on the map: you trace a path, the app works out how long and how hard it is, and from there the route can turn into a real outing that other people join.</p>
+      </div>
+
+      <div class="grid grid-3">
+        <article class="card">
+          <div class="card-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18l6-4 6 4 6-9"/><circle cx="3" cy="18" r="1.6" fill="currentColor" stroke="none"/><circle cx="21" cy="9" r="1.6" fill="currentColor" stroke="none"/></svg>
+          </div>
+          <h3>Draw &amp; publish routes</h3>
+          <p>Click the map to drop waypoints and a line follows. Distance, elevation gain, estimated duration and waypoint count update as you go. Name it, mark it Easy, Moderate or Hard, pick hiking or biking, and publish.</p>
+        </article>
+        <article class="card">
+          <div class="card-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          </div>
+          <h3>Schedule guided tours</h3>
+          <p>Guides put a date and a start time on any published route, set the capacity, name a meeting point and a pace, and add notes for the people coming. The tour then shows up in the public tour list.</p>
+        </article>
+        <article class="card">
+          <div class="card-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <h3>Book a seat</h3>
+          <p>Hikers browse upcoming tours, see how many seats are left, and claim one. A seat can be given back up to 24 hours before the start. Nobody can double-book, and a tour can never be oversold.</p>
+        </article>
+      </div>
+
+      <div class="grid grid-2" style="margin-top: var(--space-6)">
+        <article class="card">
+          <span class="tag tag-accent">Guide</span>
+          <h3 style="margin-top: var(--space-3)">Publish routes and schedule guided tours</h3>
+          <p>Guides get everything a hiker gets, plus the tour scheduler, the roster of who has booked each of their tours, and a dashboard summarising tours scheduled, seats booked and routes published.</p>
+        </article>
+        <article class="card">
+          <span class="tag tag-accent-2">Hiker</span>
+          <h3 style="margin-top: var(--space-3)">Browse upcoming tours and book a seat</h3>
+          <p>Hikers browse and search the route catalog, publish routes of their own, book seats on guided tours, and keep track of the ones they hold on a bookings page.</p>
+        </article>
+      </div>
+      <p class="text-muted" style="margin-top: var(--space-4); font-size: 14.5px">The role is chosen once, at registration, and is fixed afterwards — the interface, the navigation and the API permissions all follow from it.</p>
+    </div>
+  </section>
+
+  <!-- ================= SCREENS ================= -->
+  <section id="screens">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="kicker">Screens</p>
+        <h2>A walk through the app</h2>
+        <p>Every screenshot below is the running application. The content is the project's seed data — a set of routes around Zagreb and Fruška Gora, with demo accounts.</p>
+      </div>
+
+      <div class="shots">
+
+        <div class="shots-pair">
+          <figure class="shot">
+            <img src="assets/register.png" alt="Registration form with display name, email and password fields, and a choice between the Guide and Hiker roles." loading="lazy">
+            <figcaption><b>Register.</b> Display name, email, a password of at least eight characters including a digit, and the one choice that shapes the rest of the account: Guide or Hiker. Sessions are JWT-based and last 24 hours.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="assets/trail-.png" alt="Sign-in screen with email and password fields next to a live map showing the featured Fruška Gora Ridge Trail." loading="lazy">
+            <figcaption><b>Sign in.</b> The same split screen for returning users. The map on the right is not a picture — it is a live Leaflet map rendering a featured route straight from the API.</figcaption>
+          </figure>
+        </div>
+
+        <figure class="shot">
+          <img src="assets/routes.png" alt="Published routes page: a grid of route cards, each with a sparkline of the route shape, difficulty and activity tags, distance, elevation and duration." loading="lazy">
+          <figcaption><b>The route catalog.</b> Every published route as a card, with a small sparkline of its actual shape, difficulty and activity tags, distance, elevation gain, estimated duration, the author and how many tours are scheduled on it. Search and the Easy / Moderate / Hard filter apply instantly, in the browser.</figcaption>
+        </figure>
+
+        <div class="shots-pair">
+          <figure class="shot">
+            <img src="assets/draw%20a%20route.png" alt="The draw-a-route editor with an empty map and a hint reading 'Click anywhere to place your first waypoint'." loading="lazy">
+            <figcaption><b>Drawing, from scratch.</b> An empty canvas over OpenStreetMap. Click to place waypoints, drag a pin to adjust and the line follows. Publishing needs at least two waypoints — the form says so until it has them.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="assets/publish-route.png" alt="The same editor with a four-waypoint route drawn across Mount Golija, reading 24.7 km, 1180 m elevation gain and 7 h 55 min." loading="lazy">
+            <figcaption><b>Ready to publish.</b> The stat tiles recompute on every click — 24.7 km, 1180 m of gain, an estimated 7 h 55 min across four waypoints. Set a name, a difficulty, hiking or biking, a description, and it is live.</figcaption>
+          </figure>
+        </div>
+
+        <figure class="shot">
+          <img src="assets/trail.png" alt="Route detail page for the Fruška Gora Ridge Trail: a large map with the route drawn on it, and a side panel with distance, elevation gain, duration and waypoint tiles." loading="lazy">
+          <figcaption><b>A route in detail.</b> The map fills the page and fits itself to the route's bounds, with markers on the first and last waypoint. Beside it: the description, the four stats, and every upcoming tour scheduled on this route.</figcaption>
+        </figure>
+
+        <figure class="shot">
+          <img src="assets/schedule-tour.png" alt="A 'Schedule a tour' dialog over the route detail page, with date, start time, capacity, pace, meeting point and notes fields." loading="lazy">
+          <figcaption><b>Turning a route into a tour.</b> Guides only. Date, start time, capacity, pace, meeting point and a note for hikers. Dates in the past are rejected, and so are dates that do not exist — the validator will not take 31 February.</figcaption>
+        </figure>
+
+        <div class="shots-pair">
+          <figure class="shot">
+            <img src="assets/tours.png" alt="Upcoming guided tours page with three tour cards, each showing a date badge, time, meeting point, difficulty, distance and seats left." loading="lazy">
+            <figcaption><b>Upcoming tours.</b> Each card carries a date badge, the time window, the meeting point, and a bar showing how full the tour already is.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="assets/bookaseat.png" alt="Tour detail page for the Samobor Hills Traverse with a map, meeting point, distance, pace, a 4 of 10 seats booked bar, the guide's card and a Book a seat button." loading="lazy">
+            <figcaption><b>A tour in detail.</b> Everything a hiker needs before committing: where to meet, how fast the group will move, how many seats are gone, and who is leading.</figcaption>
+          </figure>
+        </div>
+
+        <figure class="shot">
+          <img src="assets/confirm-booking.png" alt="Confirmation dialog reading 'Book one seat?' with the tour date, time and meeting point, and Not now / Confirm booking buttons." loading="lazy">
+          <figcaption><b>One deliberate confirmation.</b> The dialog restates the date, the time and the meeting point, and spells out the cancellation window before the seat is taken.</figcaption>
+        </figure>
+
+        <div class="shots-pair">
+          <figure class="shot">
+            <img src="assets/my-bookings.png" alt="My bookings page: a table of tours with date, guide, status and a link to the tour." loading="lazy">
+            <figcaption><b>My bookings.</b> The seats a hiker currently holds. The same route in the navigation shows guides their own scheduled tours instead.</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="assets/my-profile.png" alt="Profile page showing name, role, member-since date, counters for routes published and tours booked, and the user's published routes." loading="lazy">
+            <figcaption><b>Profile.</b> Email, role, member-since date and counters that change with the role, followed by the routes this person published and the tours they booked or led.</figcaption>
+          </figure>
+        </div>
+
+        <figure class="shot">
+          <img src="assets/dashboard.png" alt="Guide dashboard: 'Good morning, Ivana', four stat tiles, a table of scheduled tours, and a list of published routes." loading="lazy">
+          <figcaption><b>The guide dashboard.</b> Tours on the calendar and how soon the next one is, seats booked across all of them, routes published, and the two lists a guide actually works from. Hikers never see this page — the router and the API both refuse it.</figcaption>
+        </figure>
+
+      </div>
+
+      <div class="notice">
+        <p><b>Honest about the demo data.</b> Everything shown is seeded content, and a few figures are placeholders rather than real features: guide ratings (4.9 from 38 hikers) are a hard-coded display stub, there is no rating system behind them. Elevation gain is derived from distance and waypoint count, not from terrain data. And <code>PAID</code> is only a booking status in the seed file — TrailShare has no payment flow.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ARCHITECTURE ================= -->
+  <section id="architecture">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="kicker">Architecture</p>
+        <h2>How the pieces fit</h2>
+        <p>One Pinia store per domain owns its API calls; components never fetch. One NestJS module per domain feature owns its entity, DTOs, service and controller. Everything the browser asks for goes through a single fetch wrapper and lands in the same guard chain.</p>
+      </div>
+
+      <div class="diagram">
+        <div class="layer">
+          <div class="layer-label">Browser · Vue 3 SPA on :5173</div>
+          <div class="nodes" style="margin-bottom: var(--space-3)">
+            <span class="node">/auth</span>
+            <span class="node">/routes</span>
+            <span class="node">/routes/new</span>
+            <span class="node">/routes/:id</span>
+            <span class="node">/tours</span>
+            <span class="node">/tours/:id</span>
+            <span class="node">/my</span>
+            <span class="node">/profile</span>
+            <span class="node">/dashboard</span>
+          </div>
+          <div class="layer-label" style="margin-top: var(--space-4)">Pinia stores — one per domain, owning its API calls</div>
+          <div class="nodes" style="margin-bottom: var(--space-3)">
+            <span class="node node-green">auth</span>
+            <span class="node node-green">routes</span>
+            <span class="node node-green">tours</span>
+            <span class="node node-green">bookings</span>
+            <span class="node node-green">dashboard</span>
+            <span class="node node-green">profile</span>
+            <span class="node node-green">toast</span>
+          </div>
+          <div class="nodes">
+            <span class="node node-accent node-wide">src/lib/api.ts — the single fetch entry point</span>
+          </div>
+        </div>
+
+        <div class="flow-arrow">
+          <span class="arrow" aria-hidden="true">↓</span>
+          HTTP · <code>/api</code> · <code>Authorization: Bearer &lt;jwt&gt;</code> · 24 h expiry
+        </div>
+
+        <div class="layer">
+          <div class="layer-label">NestJS API on :8086</div>
+          <div class="nodes" style="margin-bottom: var(--space-3)">
+            <span class="node node-accent node-wide">ValidationPipe → JwtAuthGuard / OptionalAuthGuard → RolesGuard</span>
+          </div>
+          <div class="nodes">
+            <span class="node">auth</span>
+            <span class="node">users</span>
+            <span class="node">routes</span>
+            <span class="node">tours</span>
+            <span class="node">bookings</span>
+            <span class="node">guide</span>
+            <span class="node">profile</span>
+          </div>
+        </div>
+
+        <div class="flow-arrow">
+          <span class="arrow" aria-hidden="true">↓</span>
+          TypeORM repositories · schema owned by migrations, applied on boot
+        </div>
+
+        <div class="layer">
+          <div class="layer-label">PostgreSQL 16 on :5432 — hosted on Supabase</div>
+          <div class="nodes">
+            <span class="node node-green">users</span>
+            <span class="node node-green">routes</span>
+            <span class="node node-green">tours</span>
+            <span class="node node-green">bookings</span>
+          </div>
+        </div>
+
+        <p class="text-muted" style="margin: var(--space-6) 0 0; font-size: 14.5px">There is exactly one path that skips the backend: Leaflet fetches its map tiles straight from OpenStreetMap, so rendering a map costs the API nothing and needs no token. Everything else funnels through <code>api.ts</code> into the guard chain, which is where authentication and the Guide / Hiker split get enforced.</p>
+      </div>
+
+      <h3 style="margin-top: clamp(36px, 5vw, 56px)">The data model</h3>
+      <p class="text-muted" style="max-width: 62ch">Four tables. The interesting part is that <code>User</code> shows up twice in the graph — as the author of a route and the guide of a tour on one side, and as the person holding a booking on the other.</p>
+      <div class="grid grid-4" style="margin-top: var(--space-6)">
+        <div class="entity">
+          <h4>User</h4>
+          <ul>
+            <li><span>id</span><span>uuid</span></li>
+            <li><span>displayName</span><span>varchar(80)</span></li>
+            <li><span>email</span><span>unique</span></li>
+            <li><span>passwordHash</span><span>bcrypt</span></li>
+            <li><span>role</span><span>HIKER | GUIDE</span></li>
+            <li><span>createdAt</span><span>timestamp</span></li>
+          </ul>
+        </div>
+        <div class="entity">
+          <h4>Route</h4>
+          <ul>
+            <li><span>name</span><span>varchar(120)</span></li>
+            <li><span>description</span><span>text</span></li>
+            <li><span>difficulty</span><span>Easy|Moderate|Hard</span></li>
+            <li><span>activity</span><span>Hiking | Biking</span></li>
+            <li><span>waypoints</span><span>jsonb [lat,lng][]</span></li>
+            <li><span>author</span><span>→ User</span></li>
+          </ul>
+        </div>
+        <div class="entity">
+          <h4>Tour</h4>
+          <ul>
+            <li><span>date · startTime</span><span>date · time</span></li>
+            <li><span>capacity</span><span>int 1–99</span></li>
+            <li><span>bookedCount</span><span>int</span></li>
+            <li><span>meetingPoint · pace</span><span>varchar</span></li>
+            <li><span>route</span><span>→ Route</span></li>
+            <li><span>guide</span><span>→ User</span></li>
+          </ul>
+        </div>
+        <div class="entity">
+          <h4>Booking</h4>
+          <ul>
+            <li><span>status</span><span>CONFIRMED | PAID</span></li>
+            <li><span>tour</span><span>→ Tour</span></li>
+            <li><span>hiker</span><span>→ User</span></li>
+            <li><span>createdAt</span><span>timestamp</span></li>
+            <li><span>unique</span><span>(tourId, hikerId)</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="margin-top: clamp(36px, 5vw, 56px)">Decisions worth pointing at</h3>
+      <div class="grid grid-3" style="margin-top: var(--space-6)">
+        <article class="card">
+          <h4>Seats cannot be oversold</h4>
+          <p>Booking runs in a transaction: the insert leans on a unique index on <code>(tourId, hikerId)</code> so a duplicate becomes a clean 409, and the seat counter is incremented by a conditional update that only matches while <code>bookedCount &lt; capacity</code>. Zero rows affected means the tour is full — no read-then-write race.</p>
+        </article>
+        <article class="card">
+          <h4>Login does not leak accounts</h4>
+          <p>An unknown email and a wrong password return exactly the same message, so the form cannot be used to discover who has an account. Passwords are bcrypt hashes; the JWT expires after 24 hours.</p>
+        </article>
+        <article class="card">
+          <h4>Public, but personalised</h4>
+          <p>An <code>OptionalAuthGuard</code> lets tour endpoints stay readable without a token while still enriching the response for whoever is signed in — whether you have already booked, and, for the guide who owns the tour, the roster of who is coming.</p>
+        </article>
+        <article class="card">
+          <h4>Migrations own the schema</h4>
+          <p>There is no <code>synchronize</code> anywhere, in any environment. The app runs pending migrations on startup, so an empty database only needs <code>npm run start:dev</code>, and an entity change that ships without a migration fails loudly instead of quietly reshaping a table.</p>
+        </article>
+        <article class="card">
+          <h4>Supabase stays plain Postgres</h4>
+          <p>The database is hosted on Supabase, but nothing in the app knows that: no client SDK, no Supabase Auth, no row-level security. A unit test fails the build if a <code>supabase</code> package ever appears in either <code>package.json</code>, which keeps the app portable to any Postgres.</p>
+        </article>
+        <article class="card">
+          <h4>Nothing reaches a service undeclared</h4>
+          <p>Every request body, query and param goes through a <code>class-validator</code> DTO, and the global pipe runs with <code>whitelist</code> and <code>forbidNonWhitelisted</code> — an unexpected field is an error, not something that quietly slips through.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= API ================= -->
+  <section id="api">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="kicker">API</p>
+        <h2>The REST surface</h2>
+        <p>Every route sits behind the <code>/api</code> prefix. In development Vite proxies <code>/api</code> to <code>localhost:8086</code>, so the frontend only ever uses relative paths and never hardcodes an origin.</p>
+      </div>
+
+      <div class="scroll-x">
+        <table>
+          <thead>
+            <tr><th>Method</th><th>Path</th><th>Access</th><th>What it does</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="method m-post">POST</span></td><td><code>/api/auth/register</code></td><td>Public</td><td>Create an account with a role, returns a token and the user</td></tr>
+            <tr><td><span class="method m-post">POST</span></td><td><code>/api/auth/login</code></td><td>Public</td><td>Sign in, returns a token and the user</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/auth/me</code></td><td>Token</td><td>The user behind the current token</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/routes</code></td><td>Public</td><td>The catalog, optionally filtered by <code>?difficulty=</code> and <code>?search=</code></td></tr>
+            <tr><td><span class="method m-post">POST</span></td><td><code>/api/routes</code></td><td>Token</td><td>Publish a drawn route; the author is taken from the token</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/routes/mine</code></td><td>Token</td><td>Routes the caller published</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/routes/:id</code></td><td>Public</td><td>One route with its waypoints and derived stats</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/routes/:routeId/tours</code></td><td>Public</td><td>Tours scheduled on a route</td></tr>
+            <tr><td><span class="method m-post">POST</span></td><td><code>/api/routes/:routeId/tours</code></td><td><b>Guide</b></td><td>Schedule a tour on that route</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/tours</code></td><td>Public</td><td>Upcoming tours; a token adds whether you have booked</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/tours/mine</code></td><td><b>Guide</b></td><td>The guide's own upcoming tours</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/tours/:id</code></td><td>Public</td><td>Tour detail; the owning guide also gets the roster</td></tr>
+            <tr><td><span class="method m-post">POST</span></td><td><code>/api/tours/:tourId/bookings</code></td><td><b>Hiker</b></td><td>Book one seat</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/bookings/mine</code></td><td>Token</td><td>The caller's upcoming bookings</td></tr>
+            <tr><td><span class="method m-del">DELETE</span></td><td><code>/api/bookings/:id</code></td><td>Token</td><td>Cancel your own booking, up to 24 h before the start</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/guide/dashboard</code></td><td><b>Guide</b></td><td>The dashboard figures for the signed-in guide</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/profile</code></td><td>Token</td><td>Profile and role-aware statistics</td></tr>
+            <tr><td><span class="method m-get">GET</span></td><td><code>/api/health</code></td><td>Public</td><td>Liveness check, returns <code>{"status":"ok"}</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= RUN ================= -->
+  <section id="run">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="kicker">Run it</p>
+        <h2>Running TrailShare locally</h2>
+        <p>This page is a showcase — the app itself is not hosted, because it needs an API and a database of its own. Cloning it takes a Node runtime and any PostgreSQL you can reach.</p>
+      </div>
+
+      <ol class="steps">
+        <li>
+          <h4>Point the backend at a database</h4>
+          <p class="text-muted">Copy <code>backend/.env.example</code> to <code>backend/.env</code> and fill in a PostgreSQL connection string. Any Postgres works; the project happens to use a Supabase-hosted one via the session pooler on port 5432.</p>
+<pre><code>DATABASE_URL=postgresql://user:password@host:5432/postgres
+DB_SSL=require        <span class="c"># or no-verify / disable</span></code></pre>
+        </li>
+        <li>
+          <h4>Start the API</h4>
+          <p class="text-muted">Pending migrations are applied on boot, so an empty database is enough — no manual schema step.</p>
+<pre><code>cd backend
+npm install
+npm run start:dev     <span class="c"># http://localhost:8086/api/health</span></code></pre>
+        </li>
+        <li>
+          <h4>Start the frontend</h4>
+          <p class="text-muted">Vite proxies <code>/api</code> through to the backend, so there is nothing else to configure.</p>
+<pre><code>cd frontend
+npm install
+npm run dev           <span class="c"># http://localhost:5173</span></code></pre>
+        </li>
+        <li>
+          <h4>Seed the demo content</h4>
+          <p class="text-muted">Creates the routes, tours and people you see in the screenshots. It is create-only and idempotent — running it twice changes nothing.</p>
+<pre><code>cd backend
+npm run seed</code></pre>
+          <div class="scroll-x">
+            <table style="min-width: 420px">
+              <thead><tr><th>Sign in as</th><th>Role</th><th>Password</th></tr></thead>
+              <tbody>
+                <tr><td><code>ivana@trailshare.hr</code></td><td>Guide — publishes three routes</td><td rowspan="2"><code>trailshare1</code></td></tr>
+                <tr><td><code>luka@trailshare.hr</code></td><td>Hiker</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </li>
+        <li>
+          <h4>Run the suites</h4>
+          <p class="text-muted">The end-to-end suite spins up a throwaway PostgreSQL container, so it needs Docker — and by design it never touches the hosted database.</p>
+<pre><code>cd backend  &amp;&amp; npm run lint &amp;&amp; npm test &amp;&amp; npm run test:e2e
+cd frontend &amp;&amp; npm run type-check &amp;&amp; npm run build</code></pre>
+        </li>
+      </ol>
+
+      <h3 style="margin-top: clamp(36px, 5vw, 56px)">Built with</h3>
+      <div class="grid grid-2" style="margin-top: var(--space-6)">
+        <div class="card">
+          <h4>Frontend</h4>
+          <div class="tag-row" style="margin-top: var(--space-3)">
+            <span class="tag tag-neutral">Vue 3.5</span>
+            <span class="tag tag-neutral">TypeScript</span>
+            <span class="tag tag-neutral">Vite 8</span>
+            <span class="tag tag-neutral">Vue Router 5</span>
+            <span class="tag tag-neutral">Pinia 4</span>
+            <span class="tag tag-neutral">Leaflet 1.9</span>
+            <span class="tag tag-neutral">Vitest</span>
+          </div>
+          <p class="text-muted" style="margin-top: var(--space-4); font-size: 14.5px">Composition API with <code>&lt;script setup&gt;</code> throughout, one store per domain, and a design system of CSS custom properties shared with the design source.</p>
+        </div>
+        <div class="card">
+          <h4>Backend</h4>
+          <div class="tag-row" style="margin-top: var(--space-3)">
+            <span class="tag tag-neutral">NestJS 11</span>
+            <span class="tag tag-neutral">TypeScript</span>
+            <span class="tag tag-neutral">TypeORM 0.3</span>
+            <span class="tag tag-neutral">PostgreSQL 16</span>
+            <span class="tag tag-neutral">JWT + bcrypt</span>
+            <span class="tag tag-neutral">class-validator</span>
+            <span class="tag tag-neutral">Jest 30</span>
+            <span class="tag tag-neutral">Supertest</span>
+            <span class="tag tag-neutral">Testcontainers</span>
+          </div>
+          <p class="text-muted" style="margin-top: var(--space-4); font-size: 14.5px">One module per domain feature, thin controllers, DTO-validated inputs, UUID primary keys, and a migration for every schema change. Node <code>^22.18 || &gt;=24.12</code>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= BUILD ================= -->
+  <section id="build">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="kicker">How it was built</p>
+        <h2>Eight feature slices, one agent pipeline</h2>
+        <p>TrailShare was built with Claude Code as a sequence of small feature slices. Each one is cut from <code>develop</code>, planned into a checklist, implemented task by task, reviewed and tested before it is merged back.</p>
+      </div>
+
+      <div class="pipeline">
+        <div class="pipe-step">
+          <div class="n">01 · Planner</div>
+          <h4>Write the contract</h4>
+          <p>Reads the design, then writes a plan file: the API contract plus 8–20 checkbox tasks.</p>
+        </div>
+        <div class="pipe-step">
+          <div class="n">02 · Implementor</div>
+          <h4>One task at a time</h4>
+          <p>Takes a single task, writes the code, checks that it compiles, ticks the box. Then the next one.</p>
+        </div>
+        <div class="pipe-step">
+          <div class="n">03 · Reviewer</div>
+          <h4>Read the diff</h4>
+          <p>Read-only pass over the branch: contract consistency, validation coverage, correctness, design fidelity.</p>
+        </div>
+        <div class="pipe-step">
+          <div class="n">04 · Tester</div>
+          <h4>Drive the real app</h4>
+          <p>Runs the suites, then walks the actual user flow in a browser against the design.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top: clamp(28px, 4vw, 44px)">
+        <article class="card">
+          <h4>The slices</h4>
+          <p class="text-muted" style="font-size: 14.5px">Each with its own plan file in <code>plans/</code> and its own branch:</p>
+          <div class="tag-row" style="margin-top: var(--space-3)">
+            <span class="tag tag-outline">Foundation &amp; design system</span>
+            <span class="tag tag-outline">Auth &amp; roles</span>
+            <span class="tag tag-outline">Route catalog</span>
+            <span class="tag tag-outline">Route drawing</span>
+            <span class="tag tag-outline">Tours</span>
+            <span class="tag tag-outline">Booking</span>
+            <span class="tag tag-outline">Profile</span>
+            <span class="tag tag-outline">Guide dashboard</span>
+          </div>
+        </article>
+        <article class="card">
+          <h4>Design first, then code</h4>
+          <p>The interface is not improvised. It comes from a Claude Design project whose stylesheet — the warm sand palette, Caprasimo headings, pill-shaped controls and soft-cornered cards you can see in every screenshot, and on this page — is the shared source of truth for the app and its spec.</p>
+          <p style="margin-bottom:0"><span class="text-muted">Branching: <code>main</code> ← <code>develop</code> ← <code>feature/*</code>, merged with <code>--no-ff</code> so every slice stays a visible unit in the history.</span></p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <div>
+      <a class="brand" href="#top" style="margin-bottom: var(--space-3)">
+        <svg width="22" height="22" viewBox="0 0 26 26" aria-hidden="true">
+          <circle cx="13" cy="13" r="12" fill="#7a8a5e"/>
+          <path d="M13 1a12 12 0 0 1 0 24z" fill="#c67139"/>
+        </svg>
+        <span>TrailShare</span>
+      </a>
+      <p class="text-muted">A full-stack portfolio project. All names, routes and accounts shown on this page are seeded demo data.</p>
+    </div>
+    <div>
+      <p><a href="https://github.com/MilicaStanojlovic/trail-share">Source on GitHub</a></p>
+      <p class="text-muted">Maps © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.<br>Type set in Caprasimo and Figtree.</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Highlight the section currently in view in the header nav.
+  (function () {
+    var links = Array.prototype.slice.call(document.querySelectorAll('.nav a'));
+    var byId = {};
+    links.forEach(function (a) { byId[a.getAttribute('href').slice(1)] = a; });
+    var sections = Object.keys(byId).map(function (id) { return document.getElementById(id); }).filter(Boolean);
+    if (!sections.length || !('IntersectionObserver' in window)) return;
+
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        links.forEach(function (a) { a.classList.remove('is-active'); });
+        var active = byId[entry.target.id];
+        if (active) active.classList.add('is-active');
+      });
+    }, { rootMargin: '-70px 0px -65% 0px', threshold: 0 });
+
+    sections.forEach(function (s) { observer.observe(s); });
+  })();
+</script>
+
+</body>
+</html>
