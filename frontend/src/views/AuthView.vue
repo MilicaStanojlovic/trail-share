@@ -96,44 +96,25 @@ const modeOptions = [
 </script>
 
 <template>
-  <div
-    style="
-      min-height: 100vh;
-      display: grid;
-      grid-template-columns: 1.05fr 1fr;
-      background: var(--color-bg);
-      color: var(--color-text);
-    "
-  >
-    <div
-      style="
-        padding: 48px 56px;
-        display: flex;
-        flex-direction: column;
-        gap: 28px;
-        max-width: 560px;
-      "
-    >
+  <div class="auth">
+    <div class="auth__panel">
       <div style="display: flex; align-items: center; gap: 10px">
         <BrandMark :size="30" />
         <span style="font-family: var(--font-heading); font-size: 21px">TrailShare</span>
       </div>
 
       <div style="margin-top: 8px">
-        <h1 style="font-size: 52px; max-width: 9em; margin-bottom: 12px">
+        <h1 class="auth__title">
           Draw the trail. Bring people along.
         </h1>
-        <p style="font-size: 16px; max-width: 34em; opacity: 0.8">
+        <p style="font-size: 16px; max-width: 41em; opacity: 0.8">
           Sketch a route on the map, tag how hard it is, and publish. Guides schedule tours on it — hikers book a seat.
         </p>
       </div>
 
       <SegControl v-model="mode" :options="modeOptions" style="align-self: flex-start" />
 
-      <form
-        @submit.prevent="onSubmit"
-        style="display: flex; flex-direction: column; gap: 14px; max-width: 400px"
-      >
+      <form @submit.prevent="onSubmit" class="auth__form">
         <FormField v-if="isRegister" label="Display name">
           <input
             v-model="displayName"
@@ -169,7 +150,7 @@ const modeOptions = [
           <label style="font-size: 12px; opacity: 0.7">
             Pick your role — this is fixed after registration
           </label>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+          <div class="auth__roles">
             <button
               type="button"
               class="role-card"
@@ -215,7 +196,7 @@ const modeOptions = [
           type="submit"
           block
           :disabled="pending"
-          style="min-height: 42px; font-size: 15px"
+          style="min-height: 50px; font-size: 16px"
         >
           {{ isRegister ? 'Create account' : 'Log in' }}
         </AppButton>
@@ -226,27 +207,13 @@ const modeOptions = [
       </form>
     </div>
 
-    <div style="position: relative; overflow: hidden; background: var(--color-surface)">
+    <div class="auth__media">
       <template v-if="featured">
         <div style="position: absolute; inset: 0">
           <TrailMap mode="hero" :coords="featured.waypoints" />
         </div>
 
-        <div
-          style="
-            position: absolute;
-            left: 28px;
-            bottom: 28px;
-            z-index: 450;
-            padding: 14px 18px;
-            border-radius: 28px;
-            background: var(--color-bg);
-            box-shadow: var(--shadow-lg);
-            display: flex;
-            gap: 22px;
-            align-items: center;
-          "
-        >
+        <div class="auth__featured">
           <div>
             <div style="font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--color-accent)">Featured</div>
             <div style="font-family: var(--font-heading); font-size: 17px">{{ featured.name }}</div>
@@ -259,8 +226,105 @@ const modeOptions = [
 </template>
 
 <style scoped>
+.auth {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.auth__panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+  width: 100%;
+  max-width: 760px;
+  margin-inline: auto;
+  padding: clamp(28px, 4vw, 48px) clamp(20px, 3vw, 44px);
+}
+
+.auth__title {
+  font-size: clamp(30px, 5.2vw, 52px);
+  max-width: 13em;
+  margin-bottom: 12px;
+}
+
+.auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 660px;
+}
+
+/* Chunkier controls, auth screen only. These inputs live in this component's
+   template so they carry its scope id — the design system's global 36px
+   .input is untouched on every other screen. */
+.auth__form .input {
+  min-height: 44px;
+  padding: 10px 16px;
+}
+
+.auth__roles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.auth__media {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.auth__featured {
+  position: absolute;
+  left: 28px;
+  bottom: 28px;
+  z-index: 450;
+  max-width: calc(100% - 56px);
+  padding: 14px 18px;
+  border-radius: 28px;
+  background: var(--color-bg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  align-items: center;
+}
+
+/* Below the split's comfortable minimum the two tracks can no longer hold
+   56px of padding plus the 400px form, so collapse to one column and demote
+   the map to a banner above the form. The .98 guards fractional viewport
+   widths on scaled displays (a 899.18px viewport must still collapse). */
+@media (max-width: 899.98px) {
+  .auth {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+
+  .auth__media {
+    order: -1;
+    height: clamp(150px, 26vh, 220px);
+  }
+
+  .auth__featured {
+    left: 16px;
+    bottom: 16px;
+    gap: 14px;
+    max-width: calc(100% - 32px);
+  }
+
+  .auth__panel {
+    max-width: 620px;
+  }
+}
+
 .role-card {
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-radius: 20px;
   cursor: pointer;
   display: flex;
