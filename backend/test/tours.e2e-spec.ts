@@ -6,6 +6,7 @@ import {
   createE2eContext,
   destroyE2eContext,
   E2eContext,
+  TEST_PASSWORD,
 } from './postgres-testcontainer';
 import { UserRole } from '../src/users/user.entity';
 import { RouteDifficulty, RouteActivity } from '../src/routes/route.entity';
@@ -67,7 +68,7 @@ describe('ToursController and RouteToursController (e2e)', () => {
       .send({
         displayName: 'Ivana Kovac',
         email: 'guide-tours@trailshare.hr',
-        password: 'trailshare1',
+        password: TEST_PASSWORD,
         role: UserRole.GUIDE,
       })
       .expect(201);
@@ -81,7 +82,7 @@ describe('ToursController and RouteToursController (e2e)', () => {
       .send({
         displayName: 'Luka Horvat',
         email: 'hiker-tours@trailshare.hr',
-        password: 'trailshare1',
+        password: TEST_PASSWORD,
         role: UserRole.HIKER,
       })
       .expect(201);

@@ -4,6 +4,7 @@ import {
   createE2eContext,
   destroyE2eContext,
   E2eContext,
+  TEST_PASSWORD,
 } from './postgres-testcontainer';
 import { UserRole } from '../src/users/user.entity';
 
@@ -27,7 +28,7 @@ interface ErrorResponseBody {
 const fixture = {
   displayName: 'Ivana Kovač',
   email: 'ivana@trailshare.hr',
-  password: 'trailshare1',
+  password: TEST_PASSWORD,
   role: UserRole.GUIDE,
 };
 
@@ -108,7 +109,7 @@ describe('AuthController (e2e)', () => {
       .send({
         displayName: 'Admin Role',
         email: 'case5@trailshare.hr',
-        password: 'trailshare1',
+        password: TEST_PASSWORD,
         role: 'ADMIN',
       })
       .expect(400);
@@ -120,7 +121,7 @@ describe('AuthController (e2e)', () => {
       .send({
         displayName: 'Unknown Field',
         email: 'case6@trailshare.hr',
-        password: 'trailshare1',
+        password: TEST_PASSWORD,
         role: 'HIKER',
         isAdmin: true,
       })
@@ -168,7 +169,7 @@ describe('AuthController (e2e)', () => {
       .post('/api/auth/login')
       .send({
         email: 'unknown@trailshare.hr',
-        password: 'trailshare1',
+        password: TEST_PASSWORD,
       })
       .expect(401);
   });

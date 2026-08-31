@@ -21,12 +21,12 @@ A visitor can create a TrailShare account as a Hiker or a Guide, sign in, and st
 All responses JSON. `user` everywhere means `{ "id": "<uuid>", "displayName": "Ivana Kovač", "email": "ivana@trailshare.hr", "role": "GUIDE" }` — **never** includes `passwordHash` or `createdAt`.
 
 - `POST /api/auth/register`
-  - Body: `{ "displayName": "Ivana Kovač", "email": "ivana@trailshare.hr", "password": "trailshare1", "role": "HIKER" | "GUIDE" }`
+  - Body: `{ "displayName": "Ivana Kovač", "email": "ivana@trailshare.hr", "password": "<SEED_PASSWORD>", "role": "HIKER" | "GUIDE" }`
   - Validation: `displayName` non-empty string ≤ 80 chars (trimmed); `email` valid email; `password` **min 8 chars AND at least one digit**; `role` exactly `HIKER` or `GUIDE`. Emails are normalized to lowercase before storing/matching.
   - 201 → `{ "token": "<jwt>", "user": { ... } }`
   - 400 validation failure (class-validator messages); 409 `{ "message": "Email is already registered" }` on duplicate email.
 - `POST /api/auth/login`
-  - Body: `{ "email": "ivana@trailshare.hr", "password": "trailshare1" }` (both required, email `@IsEmail`, password `@IsString` + `@IsNotEmpty` — do NOT apply the digit/length rule here).
+  - Body: `{ "email": "ivana@trailshare.hr", "password": "<SEED_PASSWORD>" }` (both required, email `@IsEmail`, password `@IsString` + `@IsNotEmpty` — do NOT apply the digit/length rule here).
   - **200** (not Nest's default 201 — use `@HttpCode(200)`) → `{ "token": "<jwt>", "user": { ... } }`
   - 401 `{ "message": "Invalid email or password" }` for unknown email **and** for wrong password (same message — don't leak which).
 - `GET /api/auth/me`
@@ -95,7 +95,7 @@ Frontend token storage: localStorage key **`trailshare.token`** (constant `TOKEN
 
 - [x] **T9 — E2e spec: register → login → me + rejections**
   - Files: `backend/test/auth.e2e-spec.ts` (new)
-  - Do: **Reuse the existing harness** — `createE2eContext()` / `destroyE2eContext()` from `backend/test/postgres-testcontainer.ts` in `beforeAll`/`afterAll`; do not start a second container. With Supertest against `ctx.app.getHttpServer()`: (1) `POST /api/auth/register` `{ displayName: 'Ivana Kovač', email: 'ivana@trailshare.hr', password: 'trailshare1', role: 'GUIDE' }` → 201 with a non-empty `token` and `user` matching `{ displayName, email, role }`, `user.id` a string, and **no `passwordHash` key** in `user`; (2) registering the same email again (any casing, e.g. `IVANA@trailshare.hr`) → 409; (3) password `short1` → 400; (4) password `longpassword` (no digit) → 400; (5) `role: 'ADMIN'` → 400; (6) an extra unknown body field (e.g. `isAdmin: true`) → 400 (forbidNonWhitelisted); (7) `POST /api/auth/login` with correct credentials → 200 `{ token, user }`; (8) wrong password → 401; (9) unknown email → 401; (10) `GET /api/auth/me` with `Authorization: Bearer <token from login>` → 200 exactly `{ id, displayName, email, role }`; (11) `me` with no header → 401; (12) `me` with `Bearer garbage` → 401.
+  - Do: **Reuse the existing harness** — `createE2eContext()` / `destroyE2eContext()` from `backend/test/postgres-testcontainer.ts` in `beforeAll`/`afterAll`; do not start a second container. With Supertest against `ctx.app.getHttpServer()`: (1) `POST /api/auth/register` `{ displayName: 'Ivana Kovač', email: 'ivana@trailshare.hr', password: '<SEED_PASSWORD>', role: 'GUIDE' }` → 201 with a non-empty `token` and `user` matching `{ displayName, email, role }`, `user.id` a string, and **no `passwordHash` key** in `user`; (2) registering the same email again (any casing, e.g. `IVANA@trailshare.hr`) → 409; (3) password `short1` → 400; (4) password `longpassword` (no digit) → 400; (5) `role: 'ADMIN'` → 400; (6) an extra unknown body field (e.g. `isAdmin: true`) → 400 (forbidNonWhitelisted); (7) `POST /api/auth/login` with correct credentials → 200 `{ token, user }`; (8) wrong password → 401; (9) unknown email → 401; (10) `GET /api/auth/me` with `Authorization: Bearer <token from login>` → 200 exactly `{ id, displayName, email, role }`; (11) `me` with no header → 401; (12) `me` with `Bearer garbage` → 401.
   - Done when: `npm run test:e2e` in `backend/` passes (Docker running) with the new spec green alongside the existing health spec.
 
 - [x] **T10 — Frontend auth types + Authorization header in the api client**

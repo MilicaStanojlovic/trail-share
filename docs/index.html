@@ -747,7 +747,8 @@ pre code { background: transparent; border: 0; padding: 0; color: inherit; font-
           <h4>Point the backend at a database</h4>
           <p class="text-muted">Copy <code>backend/.env.example</code> to <code>backend/.env</code> and fill in a PostgreSQL connection string. Any Postgres works; the project happens to use a Supabase-hosted one via the session pooler on port 5432.</p>
 <pre><code>DATABASE_URL=postgresql://user:password@host:5432/postgres
-DB_SSL=require        <span class="c"># or no-verify / disable</span></code></pre>
+DB_SSL=require        <span class="c"># or no-verify / disable</span>
+SEED_PASSWORD=        <span class="c"># your own, for the demo accounts in step 4</span></code></pre>
         </li>
         <li>
           <h4>Start the API</h4>
@@ -768,15 +769,7 @@ npm run dev           <span class="c"># http://localhost:5173</span></code></pre
           <p class="text-muted">Creates the routes, tours and people you see in the screenshots. It is create-only and idempotent — running it twice changes nothing.</p>
 <pre><code>cd backend
 npm run seed</code></pre>
-          <div class="scroll-x">
-            <table style="min-width: 420px">
-              <thead><tr><th>Sign in as</th><th>Role</th><th>Password</th></tr></thead>
-              <tbody>
-                <tr><td><code>ivana@trailshare.hr</code></td><td>Guide — publishes three routes</td><td rowspan="2"><code>trailshare1</code></td></tr>
-                <tr><td><code>luka@trailshare.hr</code></td><td>Hiker</td></tr>
-              </tbody>
-            </table>
-          </div>
+          <p class="text-muted" style="font-size: 14.5px">Every seeded account shares the password you set as <code>SEED_PASSWORD</code> — the seeder refuses to run without it, so no credential is committed. Sign in as <code>ivana@trailshare.hr</code> for the guide's view of the app, or <code>luka@trailshare.hr</code> for a hiker's.</p>
         </li>
         <li>
           <h4>Run the suites</h4>

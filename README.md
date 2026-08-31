@@ -42,7 +42,7 @@ Needs Node `^22.18 || >=24.12` and any reachable PostgreSQL.
 
 ```bash
 # 1. point the backend at a database
-cp backend/.env.example backend/.env     # then fill in DATABASE_URL and DB_SSL
+cp backend/.env.example backend/.env     # then fill in DATABASE_URL, DB_SSL and SEED_PASSWORD
 
 # 2. the API — applies pending migrations on boot, so an empty database is fine
 cd backend && npm install && npm run start:dev        # http://localhost:8086/api/health
@@ -54,12 +54,7 @@ cd frontend && npm install && npm run dev             # http://localhost:5173
 cd backend && npm run seed
 ```
 
-Seeded sign-ins, all with the password `trailshare1`:
-
-| Email | Role |
-|---|---|
-| `ivana@trailshare.hr` | Guide — publishes three routes |
-| `luka@trailshare.hr` | Hiker |
+The seeded accounts all share the password you put in `SEED_PASSWORD`; the seeder refuses to run without it, so no credential is committed. Sign in as `ivana@trailshare.hr` for the guide's view, or `luka@trailshare.hr` for a hiker's — the full list is in `docs/seed-data.json`.
 
 ## Tests
 
