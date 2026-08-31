@@ -4,6 +4,7 @@ import {
   createE2eContext,
   destroyE2eContext,
   E2eContext,
+  TEST_PASSWORD,
 } from './postgres-testcontainer';
 import { UserRole } from '../src/users/user.entity';
 import { RouteDifficulty, RouteActivity } from '../src/routes/route.entity';
@@ -64,7 +65,7 @@ describe('Guide dashboard (e2e)', () => {
   ): Promise<AuthResponseBody> {
     const response = await request(server)
       .post('/api/auth/register')
-      .send({ displayName, email, password: 'trailshare1', role })
+      .send({ displayName, email, password: TEST_PASSWORD, role })
       .expect(201);
 
     return response.body as AuthResponseBody;

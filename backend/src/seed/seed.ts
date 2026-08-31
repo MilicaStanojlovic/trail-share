@@ -44,9 +44,19 @@ interface SeedData {
   tours: SeedTour[];
 }
 
-// Every seeded user gets this password so a human can sign in as
-// ivana@trailshare.hr.
-export const SEED_PASSWORD = 'trailshare1';
+// Every seeded user gets the same password, taken from SEED_PASSWORD in
+// backend/.env so that no credential lives in the repository. It is read
+// lazily: this module is imported before ConfigModule loads .env, so reading
+// process.env at module scope would miss it.
+export function seedPassword(): string {
+  const password = process.env.SEED_PASSWORD;
+  if (!password) {
+    throw new Error(
+      'SEED_PASSWORD is not set. Add it to backend/.env before running `npm run seed` — 8+ characters including a digit, so it satisfies the register rule.',
+    );
+  }
+  return password;
+}
 
 interface SeedBooking {
   // The tour's id in docs/seed-data.json, not a database id.
@@ -97,7 +107,7 @@ export async function seedDatabase(dataSource: DataSource): Promise<{
   let toursCreated = 0;
   let bookingsCreated = 0;
 
-  const passwordHash = await hash(SEED_PASSWORD, 10);
+  const passwordHash = await hash(seedPassword(), 10);
 
   const userByDisplayName = new Map<string, User>();
 

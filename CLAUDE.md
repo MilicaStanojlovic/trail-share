@@ -110,7 +110,7 @@ cd backend && npm run seed
 
 Create-only and idempotent — it looks users up by email and routes by name and inserts only what is missing, so re-running reports `0 users created, 0 routes created` and never disturbs accounts you made by hand.
 
-Every seeded account uses the password **`trailshare1`** (8+ chars with a digit, so it satisfies the register rule). Useful sign-ins:
+Every seeded account gets the same password, read from **`SEED_PASSWORD`** in `backend/.env` — the seeder throws if it is unset, so no credential lives in the repository. Use 8+ characters including a digit, so it satisfies the register rule. Useful sign-ins:
 
 | Email | Role |
 |---|---|

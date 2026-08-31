@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import {
   PostgreSqlContainer,
   StartedPostgreSqlContainer,
@@ -13,6 +14,13 @@ import { AppModule } from '../src/app.module';
  * Container start is slow (image pull on first run) — jest-e2e.json raises the
  * timeout and pins maxWorkers to 1 so suites reuse the machine serially.
  */
+/**
+ * The password every e2e fixture registers with. Generated per run so that no
+ * credential-shaped literal sits beside an email address anywhere in the repo;
+ * the register rule (8+ characters including a digit) holds by construction.
+ */
+export const TEST_PASSWORD = `e2e${randomBytes(8).toString('hex')}1`;
+
 export interface E2eContext {
   app: INestApplication;
   container: StartedPostgreSqlContainer;
