@@ -126,7 +126,7 @@ Backend T2–T5 first, then frontend T6–T11, then the gate. Implementors run s
     - **Routes you published** — `<h4>` + `RouteCard` grid `repeat(auto-fill, minmax(320px, 1fr)); gap: 18px` over `routesStore.mine`, `@open` → `/routes/:id`. Empty → `EmptyState message="Nothing here yet." cta-label="Draw a route"` → `/routes/new`, guarded by `!routesStore.loading` (the `showEmpty` pattern at `MyBookingsView.vue:54`).
     - **Tours** — guides: `<h4>Tours you scheduled</h4>` + `TourCard` grid `repeat(auto-fill, minmax(340px, 1fr)); gap: 18px` over `toursStore.mine` with `cta="Manage"`; empty → `EmptyState message="Nothing here yet." cta-label="Browse routes"` → `/routes`. Hikers: `<h4>Tours you booked</h4>` + the same grid over `bookingsStore.mine.map(b => b.tour)` with the default CTA; empty → `EmptyState message="Nothing here yet." cta-label="Browse tours"` → `/tours` (the exact copy `/my` already uses).
     - `onMounted`: `Promise.all` of `profileStore.fetchProfile()`, `routesStore.fetchMine()`, and role-dependently `toursStore.fetchMine()` (guide) or `bookingsStore.fetchMine()` (hiker) — never `tours/mine` for a hiker, it is `@Roles('GUIDE')` and 403s. Wrap in `try/catch` → `toastStore.show('Could not load your profile')`.
-  - Done when: `npm run type-check && npm run build` pass; signed in as `ivana@trailshare.hr` (`trailshare1`), `/profile` shows her name, email, `GUIDE`, member-since, four populated tiles, her 3 routes and her tours; as `luka@trailshare.hr` it shows the 3-tile hiker layout with no rating.
+  - Done when: `npm run type-check && npm run build` pass; signed in as `ivana@trailshare.hr` (`<SEED_PASSWORD>`), `/profile` shows her name, email, `GUIDE`, member-since, four populated tiles, her 3 routes and her tours; as `luka@trailshare.hr` it shows the 3-tile hiker layout with no rating.
 
 - [x] **T12 — Verification gate** (e2e excepted, see T5)
   - Run `cd backend && npm run lint && npm test && npm run test:e2e` (Docker up) and `cd frontend && npm run type-check && npm run build`. Then with the stack running and seeded, walk the flow in Chrome per Verification below. Commit, push, merge to `develop` with `--no-ff`.
@@ -142,7 +142,7 @@ cd frontend && npm run type-check && npm run build
 
 Then start the stack (`cd backend && npm run start:dev`, `cd frontend && npm run dev`), seed with `cd backend && npm run seed`, and check in the browser:
 
-1. Sign in as `ivana@trailshare.hr` / `trailshare1` → click the nav avatar → lands on `/profile`, nav avatar shows `aria-current="page"`.
+1. Sign in as `ivana@trailshare.hr` / `<SEED_PASSWORD>` → click the nav avatar → lands on `/profile`, nav avatar shows `aria-current="page"`.
 2. Header reads `Ivana Kovač` / `Guide · N tours led · 4.9 ★`; details card shows her email, `Guide`, and a real member-since date; four tiles are populated; her 3 seeded routes render as `RouteCard`s; her tours render as `TourCard`s with a **Manage** CTA that opens the tour.
 3. Click **Sign out** → toast "Signed out", redirected to `/auth`. Sign back in as `luka@trailshare.hr` and confirm the profile shows **no** trace of Ivana's routes or tours (the store `reset()` chain from T8).
 4. As Luka: 3 tiles, no Rating tile, `Hiker · 0 tours booked`, "Nothing here yet." + **Browse tours** under Tours you booked (decision 10 — seeded hikers have no `Booking` rows). Book a seat from `/tours`, return to `/profile`, and confirm Tours booked and Upcoming tours both read 1 and the tour card appears.
